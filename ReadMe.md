@@ -1,348 +1,282 @@
 # Personal Expense & Income Management System
 
-**Project name (solution):** ExpenseManager  
-**Technology stack:** ASP.NET Core (Web App) + SQLite + Entity Framework Core  
-**Architecture:** Clean Architecture (API + Application + Domain + Infrastructure + UI)  
-**Authentication:** ASP.NET Core Identity — Cookie-based (MVC) or JWT (SPA)
+A secure web-based personal finance manager built with **ASP.NET Core**, **Entity Framework Core**, and **SQLite**. Track income and expenses (one-time and recurring), manage bank accounts, and view a monthly financial dashboard.
 
 ---
 
-## 1. Project Overview
+## Table of Contents
 
-### 1.1 Purpose
-
-Build a secure web-based personal finance management system where users can:
-
-- Register and log in securely
-- Add and manage **Income** (one-time and recurring)
-- Add and manage **Expenses** (one-time and recurring)
-- Track recurring payments (chit funds, EMI, subscriptions)
-- Manage bank accounts and balances
-- View a **Monthly Financial Dashboard**
-- Switch between months to track historical data
+- [Tech Stack](#tech-stack)
+- [Features](#features)
+- [Getting Started](#getting-started)
+- [Project Structure](#project-structure)
 
 ---
 
-## 2. Functional Requirements
+## Tech Stack
 
-### 2.1 User Authentication
-
-**Features:**
-
-- User registration
-- Login / logout
-- Forgot password
-- Password reset
-- Secure session handling
-- Role: User (future-ready for Admin)
-
-**Technical:**
-
-- ASP.NET Core Identity
-- Password hashing
-- JWT (if SPA) or cookie-based auth (if MVC)
-- User-based data isolation
+| Layer        | Technology                          |
+| ------------ | ------------------------------------ |
+| Framework    | ASP.NET Core (.NET 10)               |
+| Database     | SQLite (file-based, no server)       |
+| ORM          | Entity Framework Core                |
+| Auth         | ASP.NET Core Identity (cookie-based) |
+| UI           | MVC with Razor views                 |
 
 ---
 
-## 3. Core Modules
+## Features
 
-### 3.1 Income Management
+### 1. User Authentication
 
-**Income types:**
+- **Register** – Create an account with email and password.
+- **Login / Logout** – Secure sign-in with cookie-based sessions.
+- **Forgot password / Reset password** – Handled via ASP.NET Core Identity UI.
+- **Data isolation** – Every record is tied to the logged-in user; users only see their own data.
+- **Roles** – User role in place; structure is ready for future Admin role.
 
+---
 
-| Type      | Examples                                        |
-| --------- | ----------------------------------------------- |
-| One-time  | Freelance payment, bonus, gift                  |
-| Recurring | Salary, rental income, monthly business revenue |
+### 2. Income Management
 
+Add and manage income in two ways:
+
+| Type       | Use case                                      |
+| ---------- | --------------------------------------------- |
+| **One-time** | Freelance payment, bonus, gift, one-off income |
+| **Recurring** | Salary, rental income, monthly business revenue |
 
 **Income fields:**
 
+- **Title** – Short description (e.g. “Monthly salary”).
+- **Amount** – Decimal value.
+- **Category** – From income categories (Salary, Business, Investments, Other, or custom).
+- **Type** – One-time or Recurring.
+- **Frequency** (recurring only) – Weekly, Monthly, Quarterly, Every 4 months, Half-yearly, Yearly.
+- **Start date / End date** (recurring) – When the recurring income begins and optionally ends.
+- **Received to account** (optional) – Bank account that receives the income.
+- **Is active** – Recurring items can be paused without deleting.
 
-| Field       | Type                           |
-| ----------- | ------------------------------ |
-| Id          | GUID                           |
-| UserId      | FK                             |
-| Title       | string                         |
-| Amount      | decimal                        |
-| CategoryId  | FK                             |
-| Type        | Enum (OneTime / Recurring)     |
-| Frequency   | Enum (Monthly, Weekly, Quarterly, Every4Months, HalfYearly, Yearly) |
-| StartDate   | Date                           |
-| EndDate     | Date (nullable)                |
-| IsActive    | bool                           |
-| CreatedDate | DateTime                       |
+**Behaviour:**
 
+- **One-time:** Stored once with a specific date; counted in that month on the dashboard.
+- **Recurring:** Projected on-the-fly for each month. Only months where the item is *due* are included (e.g. “Every 4 months” from Jan → Jan, May, Sep).
+- **Past start dates:** If start date is in the past, all due months from start up to the selected month are included in the dashboard.
+- **End date:** Recurrence stops after the end date; no projection beyond it.
+- **Mark as completed:** For a given month, you can mark a recurring income as “received” so the dashboard shows it as completed vs pending.
 
-**Business logic:**
+---
 
-- **One-time:** Recorded only once for a specific date.
-- **Recurring:**
-  - System auto-generates projection (on-the-fly) per period; support **Monthly**, **Every 4 months**, **Every 6 months** (half-yearly), etc., so only the due months show the amount (e.g. chit every 4 months → Jan, May, Sep).
-  - If start date is in the past → include historical due months in dashboard.
-  - If end date exists → stop after end date.
-  - Editable and pausable.
-  - **Mark as completed:** For each projected period, user can mark the recurring item as *completed* (e.g. salary received, payment made) so they can see which projections are fulfilled vs pending.
+### 3. Expense Management
 
-### 3.2 Expense Management
+Add and manage expenses in two ways:
 
-**Expense types:**
-
-
-| Type      | Examples                            |
-| --------- | ----------------------------------- |
-| One-time  | Shopping, medical bill              |
-| Recurring | EMI, chit fund, subscriptions, rent |
-
+| Type       | Use case                                      |
+| ---------- | --------------------------------------------- |
+| **One-time** | Shopping, medical bill, one-off spending     |
+| **Recurring** | EMI, chit fund, subscriptions, rent          |
 
 **Expense fields:**
 
+- **Title** – Short description (e.g. “Home loan EMI”).
+- **Amount** – Decimal value.
+- **Category** – From expense categories (Food, Travel, EMI, Chit Fund, Utilities, Insurance, Shopping, or custom).
+- **Type** – One-time or Recurring.
+- **Frequency** (recurring only) – Weekly, Monthly, Quarterly, Every 4 months, Half-yearly, Yearly.
+- **Start date / End date** (recurring) – When the recurring expense begins and optionally ends.
+- **Paid from account** (optional) – Bank account from which the expense is paid.
+- **Is active** – Recurring expenses can be paused.
 
-| Field             | Type                           |
-| ----------------- | ------------------------------ |
-| Id                | GUID                           |
-| UserId            | FK                             |
-| Title             | string                         |
-| Amount            | decimal                        |
-| CategoryId        | FK                             |
-| Type              | Enum (OneTime / Recurring)     |
-| Frequency         | Enum (Monthly, Weekly, Quarterly, Every4Months, HalfYearly, Yearly) |
-| StartDate         | Date                           |
-| EndDate           | Date (nullable)                |
-| PaidFromAccountId | FK (nullable)                  |
-| IsActive          | bool                           |
-| CreatedDate       | DateTime                       |
+**Behaviour:**
 
+- **One-time:** Stored once with a specific date; counted in that month.
+- **Recurring:** Projected on-the-fly. Non-monthly frequencies (e.g. every 4 or 6 months) only count in due months (e.g. chit in Jan, May, Sep).
+- **Late entry:** If you add a recurring expense after its start date (e.g. start Jan 2024, you add it in Aug 2025), the dashboard still shows all due months from Jan 2024 so totals are correct.
+- **Mark as completed:** For a given month, you can mark a recurring expense as “paid” so the dashboard shows completed vs pending and you can record a different amount if needed (e.g. partial payment).
 
-**Recurring expense logic (important):**
+**Transaction actions:**
 
-- **Monthly:** Example — Chit fund ₹5,000, Start: Jan 2024, End: Dec 2025. If the user adds this in Aug 2025, the system must show all months from Jan 2024 (even when entered late).
-- **Non-monthly (e.g. every 4 or 6 months):** Chit funds may be due only in specific months (e.g. every 4 months → Jan, May, Sep; every 6 months → Jan, Jul). The user pays only in that month; until then the amount stays in their account (e.g. salary account). The dashboard must show **bank balances** so users can see how much is available before the payment month.
-
-**Implementation:** Use **on-the-fly calculation** (recommended). Optionally, a background service can generate stored monthly entries for reporting.
-
-**Mark as completed:** Since recurring expenses are auto-projected, users need a way to record that a payment was actually made for a given month. Each projected recurring expense (and optionally income) can be **marked as completed** for a specific month (e.g. "EMI Jan 2024 — paid"). This helps distinguish:
-
-- **Pending:** Projected for the month but not yet paid/received.
-- **Completed:** User has confirmed payment/receipt for that month.
-
-### 3.3 Category Management
-
-- **Predefined + custom categories**
-- **Income categories:** Salary, Business, Investments, Other
-- **Expense categories:** Food, Travel, EMI, Chit Fund, Utilities, Insurance, Shopping
-- User can add, edit, and delete custom categories. Every income/expense should have a category (use "Uncategorized" if needed).
-
-### 3.4 Bank Account Management
-
-Users can:
-
-- Add multiple bank accounts
-- Set initial balance
-- Update balance manually (or derive from linked transactions)
-- View monthly balance changes
-
-**Bank account fields:**
-
-
-| Field          | Type                                  |
-| -------------- | ------------------------------------- |
-| Id             | GUID                                  |
-| UserId         | FK                                    |
-| AccountName    | string                                |
-| AccountType    | Enum (Savings, Current, Cash, Wallet) |
-| InitialBalance | decimal                               |
-| CurrentBalance | decimal (calculated or manual)        |
-| CreatedDate    | DateTime                              |
-
-
-**CurrentBalance:** Calculated as `InitialBalance + sum(income to account) - sum(expenses from account)` for the given account, or updated manually. Define one approach per implementation.
+- **Create** – Add one-time or recurring income/expense with full form.
+- **Index** – List active and completed transactions.
+- **Update future** – For recurring items: change amount, start/end date, or frequency from a chosen date; only future occurrences are affected.
+- **Edit amount** – Change the amount for a recurring transaction (used for “mark completed” with a different amount).
+- **Edit dates** – Change start and/or end date for a recurring transaction.
+- **Mark completed** – For a specific year/month, mark a recurring item as completed (optionally with a different amount).
+- **Mark all completed** – Mark all due recurring items for a month as completed in one go.
+- **Revert completed** – Remove the “completed” mark for a recurring item in a given month.
+- **Delete** – Soft delete a transaction (hidden, not physically removed).
 
 ---
 
-## 4. Monthly Dashboard
+### 4. Category Management
 
-### 4.1 Features
-
-- Month selector (dropdown or calendar)
-- **Summary cards:** Total Income, Total Expense, Net Balance, Savings
-- **Bank balances:** Show current balance for each bank account (e.g. Salary account, Savings). Essential for planning — e.g. when a chit fund is due every 4 or 6 months, the amount stays in the account until the payment month; users need to see balances at a glance.
-- Category-wise pie chart
-- Recurring upcoming payments (including non-monthly items, e.g. next chit due in May)
-- Bank-wise balances (list or cards per account)
-
-### 4.2 Dashboard calculation logic
-
-For the selected month:
-
-- **Income** = All one-time income in that month + All recurring income due in that month (for non-monthly frequency, only count months where the item is due, e.g. every 4 months → Jan, May, Sep)
-- **Expense** = All one-time expense in that month + All recurring expense due in that month (same rule for every-4-months, every-6-months, etc.)
-- **Net balance** = Income − Expense
-- **Savings** = Net balance (same as above; shown as a separate card for clarity)
-
-### 4.3 Bank balances on dashboard
-
-Users must see **current balance per bank account** on the dashboard (e.g. Salary account, Savings, Cash). This is especially important when expenses are not monthly: for chit funds due every 4 or 6 months, the money stays in the account until the payment month, so viewing balances helps plan and avoid overspending.
+- **Predefined categories** – Seeded on first run:
+  - **Income:** Salary, Business, Investments, Other.
+  - **Expense:** Food, Travel, EMI, Chit Fund, Utilities, Insurance, Shopping.
+- **Custom categories** – Add your own income or expense categories.
+- **CRUD:** List all, Create, Edit, Delete. Duplicate names per type are prevented.
+- Every income and expense must have a category; use “Uncategorized” or a custom category if needed.
 
 ---
 
-## 5. Database Design
+### 5. Bank Account Management
 
-### 5.1 Tables
-
-
-| Table        | Notes                                                         |
-| ------------ | ------------------------------------------------------------- |
-| Users        | Handled by ASP.NET Core Identity                              |
-| Categories   | Id, UserId (nullable for system), Name, Type (Income/Expense) |
-| Incomes      | As defined in §3.1                                            |
-| Expenses     | As defined in §3.2                                            |
-| BankAccounts | As defined in §3.4                                            |
-| Transactions | Optional: store generated monthly entries for reporting       |
-
+- **Multiple accounts** – Add several bank accounts (e.g. Salary, Savings, Cash, Wallet).
+- **Account types** – Savings, Current, Cash, Wallet, Salary.
+- **Initial balance** – Set when creating the account.
+- **Current balance** – By default **calculated** as:  
+  `Initial balance + sum(income to account) − sum(expenses from account)`  
+  up to the current month (or selected month when viewed from the dashboard).
+- **Manual override** – Option to use a manual balance instead of the calculated one (e.g. after reconciling with bank statement).
+- **CRUD:** List (with current balance), Create, Edit, Delete (soft delete).
+- **User-scoped** – Only your accounts are visible and editable.
 
 ---
 
-## 6. UI/UX Design Guidelines
+### 6. Monthly Dashboard
 
+- **Month selector** – Choose year and month to view that month’s summary.
+- **Summary cards:**
+  - **Total income** – One-time income in that month + recurring income due in that month (with “mark completed” amount where applicable).
+  - **Total expense** – One-time expense in that month + recurring expense due in that month (with “mark completed” amount where applicable).
+  - **Net balance** – Total income − total expense.
+  - **Savings** – Same as net balance (shown for clarity).
+- **Bank balances** – Current balance per bank account for the selected month (or manual override if set). Helps plan for non-monthly payments (e.g. chit due every 4 or 6 months).
+- **Category breakdown** – Category-wise totals (income and expense) for the month, including both one-time and recurring items.
+- **Recurring due items** – List of recurring income/expense due in that month with:
+  - Title, amount, type (income/expense)
+  - Completed vs pending (based on “mark as completed”).
+- **Extra stats** – Completed vs pending recurring count, top expense category, highest due expense amount.
 
-| Page          | Guidelines                                                      |
-| ------------- | --------------------------------------------------------------- |
-| Login         | Clean, minimal                                                  |
-| Dashboard     | Month switcher at top; summary cards; graphs; quick-add buttons |
-| Income        | Add button; table view; edit/delete; filter by type             |
-| Expense       | Same as Income                                                  |
-| Bank accounts | Add account; view balances; transaction history                 |
+**Dashboard calculation rules:**
 
-
-**UI type:** MVC (Razor) with cookie auth, or SPA (React/Angular/Blazor) with JWT. Choose one and align auth and project structure.
-
----
-
-## 7. Non-Functional Requirements
-
-- Secure (auth, authorization, HTTPS)
-- Fast loading and mobile responsive
-- Clean UI and consistent UX
-- Data isolation per user
-- Soft delete instead of hard delete
-- Proper logging and audit fields (e.g. CreatedBy, UpdatedBy, CreatedAt, UpdatedAt)
+- **Income** = One-time income in that month + Recurring income due in that month (only in due months for non-monthly frequencies).
+- **Expense** = One-time expense in that month + Recurring expense due in that month (same rule).
+- **Recurring “due in month”** – Weekly: at least one occurrence in the month; Monthly: every month; Quarterly: every 3 months; Every 4 months: Jan, May, Sep, etc.; Half-yearly: every 6 months; Yearly: once per year.
+- **Mark as completed** – If a recurring item is marked completed for that month, the completed amount (which may differ from the template amount) is used in totals and in bank balance logic where applicable.
 
 ---
 
-## 8. API Structure (Web API + SPA)
+### 7. Recurrence Frequencies (Detail)
 
-```
-/api/auth
-/api/income
-/api/expense
-/api/category
-/api/bankaccount
-/api/dashboard
-```
+| Frequency       | Due months (example from Jan 2024)     |
+| --------------- | --------------------------------------- |
+| Weekly          | Every week (multiple occurrences per month) |
+| Monthly         | Every month                             |
+| Quarterly       | Jan, Apr, Jul, Oct                      |
+| Every 4 months  | Jan, May, Sep                           |
+| Half-yearly     | Jan, Jul                                |
+| Yearly          | January only                            |
 
----
-
-## 9. Advanced Features (Phase 2+)
-
-- Budget planning and savings goals
-- PDF and Excel export
-- Notifications for due EMI; recurring reminder email
-- Graph analytics and AI expense categorization
-- Multi-currency support
+Start/end date and “is active” determine which of these due dates are included.
 
 ---
 
-## 10. Edge Cases to Handle
+### 8. Data & Security
 
-- Recurring item added with start date in the past
-- Editing recurring amount mid-cycle
-- Deleting or pausing a recurring entry
-- Leap year and timezone consistency
-- Negative balance alerts
-
----
-
-## 11. Security Considerations
-
-- Validate ownership of every record (user can only access own data)
-- Use authorization filters and prevent IDOR
-- Input validation and parameterized queries (EF Core to avoid SQL injection)
-- HTTPS only in production
+- **Soft delete** – Transactions and bank accounts use soft delete (IsDeleted); data can be retained for audit.
+- **Audit fields** – CreatedAt, UpdatedAt on relevant entities.
+- **User ownership** – All queries filter by current user ID; no cross-user data access.
+- **Validation** – Input validation and parameterized queries (EF Core) to avoid invalid data and SQL injection.
+- **HTTPS** – Recommended in production.
 
 ---
 
-## 12. Project Structure
+### 9. Edge Cases Handled
 
-```
-/ExpenseManager
-    /ExpenseManager.API
-    /ExpenseManager.Application
-    /ExpenseManager.Domain
-    /ExpenseManager.Infrastructure
-    /ExpenseManager.UI
-```
+- Recurring item with start date in the past → all due months from start are included in the dashboard.
+- Editing recurring amount or dates → “Update future” and “Edit amount” / “Edit dates” support mid-cycle changes.
+- Pausing or deleting recurring entry → IsActive and soft delete prevent it from appearing in future projections.
+- Recurring completion with different amount → “Mark as completed” can store a custom amount for that month.
+- Bank balance → Uses initial balance + transactions (and optional manual override) for the selected or current month.
 
 ---
 
-## 13. Development Plan
-
-
-| Phase   | Scope                                                                |
-| ------- | -------------------------------------------------------------------- |
-| Phase 1 | Authentication; CRUD Income; CRUD Expense; Categories; Bank accounts |
-| Phase 2 | Recurring logic; Dashboard; Reporting                                |
-| Phase 3 | Advanced analytics; Notifications; AI features                       |
-
-
----
-
-## 14. Acceptance Criteria
-
-- User can register and log in
-- User can add recurring salary and EMI (e.g. from Jan 2024)
-- Dashboard shows correct totals for a chosen month (e.g. Feb 2024)
-- Month switching works
-- Data is isolated per user
-- Bank balance updates correctly (manual or from transactions)
-
----
-
-## 15. Sample User Flow
-
-1. Register
-2. Add bank account (e.g. ₹50,000)
-3. Add salary (e.g. ₹60,000 recurring from Jan 2024)
-4. Add EMI (e.g. ₹10,000 from Jan 2024 to Dec 2026)
-5. View dashboard for Feb 2024
-  - Income: 60,000 | Expense: 10,000 | **Net: 50,000**
-
----
-
-## 16. Getting Started
+## Getting Started
 
 ### Prerequisites
 
-- .NET 8 SDK (or LTS version in use)
-- SQLite (file-based; no separate database server required)
-- IDE: Visual Studio 2022 or VS Code with C# extension
+- **.NET 10 SDK** (or the SDK matching the project’s target framework).
+- **SQLite** – No separate database server; the app uses a file (e.g. `app.db`).
+- **IDE** – Visual Studio 2022 or VS Code with C# extension.
 
 ### Run the application
 
-1. Clone the repository and open the solution (e.g. `ExpenseManager.sln`).
-2. Set SQLite connection string in `appsettings.json` (e.g. `Data Source=app.db`). No separate database server is needed.
-3. Run migrations: `dotnet ef database update` (from the project containing the DbContext).
-4. Run the API or web project: `dotnet run --project ExpenseManager.API` or `ExpenseManager.UI`.
+1. **Clone the repository** and open the solution (e.g. open the folder in VS/VS Code).
+2. **Database** – Ensure `appsettings.json` has a SQLite connection string (e.g. `Data Source=app.db`). The project is configured to create/use the file in the application directory.
+3. **Migrations** – From the project that contains the DbContext (ExpenseManager):
+   ```bash
+   dotnet ef database update
+   ```
+4. **Run the web app:**
+   ```bash
+   dotnet run --project ExpenseManager
+   ```
+5. Open the URL shown (e.g. `https://localhost:5001` or `http://localhost:5000`), then **Register** and **Login**.
+
+### First-time setup
+
+- On first run, seed data creates default **Income** and **Expense** categories.
+- Add at least one **Bank account** (optional but useful for linking transactions).
+- Add **Income** and **Expense** (one-time or recurring), then open the **Dashboard** and pick a month to see the summary.
 
 ---
 
-## Final Goal
+## Project Structure
 
-A clean, scalable, and secure personal finance manager with:
+```
+ExpenseManager/
+├── Controllers/
+│   ├── HomeController.cs
+│   ├── DashboardController.cs    # Monthly dashboard
+│   ├── TransactionsController.cs # Income & expense CRUD + recurring actions
+│   ├── CategoriesController.cs  # Category CRUD
+│   └── BankAccountsController.cs
+├── Models/
+│   ├── TransactionEntry.cs      # Income/expense entity
+│   ├── Category.cs
+│   ├── BankAccount.cs
+│   ├── Enums.cs                  # CategoryType, ScheduleType, Frequency, etc.
+│   ├── AuditableEntity.cs
+│   └── ViewModels/
+├── Services/
+│   ├── IDashboardService.cs
+│   └── DashboardService.cs       # Month build, balance, recurrence logic
+├── Data/
+│   ├── ApplicationDbContext.cs
+│   ├── SeedData.cs               # Default categories
+│   └── Migrations/
+├── Views/                        # Razor views per feature
+├── Areas/Identity/               # ASP.NET Core Identity (Register, Login, etc.)
+└── Program.cs
+```
 
-- ASP.NET Core, Entity Framework Core, SQLite
-- Identity-based authentication
-- Monthly financial dashboard and reporting
+---
 
+## Sample User Flow
+
+1. **Register** and log in.
+2. **Add a bank account** (e.g. “Salary account”, initial balance ₹50,000).
+3. **Add salary** – Recurring income ₹60,000/month from Jan 2024, received to Salary account.
+4. **Add EMI** – Recurring expense ₹10,000/month from Jan 2024 to Dec 2026, paid from Salary account.
+5. **Open Dashboard** and select **Feb 2024**:
+   - Income: ₹60,000  
+   - Expense: ₹10,000  
+   - **Net: ₹50,000**
+6. Use **Mark as completed** for salary and EMI when paid/received, and optionally **edit amount** for that month if needed.
+
+---
+
+## Possible Future Enhancements (Phase 2+)
+
+- Budget planning and savings goals.
+- PDF and Excel export.
+- Notifications for due EMI and recurring reminders.
+- Richer charts and analytics.
+- Multi-currency support.
+
+---
+
+## License
+
+See repository or project license file if present.
