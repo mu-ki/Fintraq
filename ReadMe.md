@@ -1,6 +1,6 @@
 # Personal Expense & Income Management System
 
-![Site Tour](ExpenseManager/Images/Site-Tour.gif)
+![Dashboard](ExpenseManager/Images/screencapture-localhost-7153-Dashboard-2026-02-28-03_34_08.png)
 
 A secure web-based personal finance manager built with **ASP.NET Core**, **Entity Framework Core**, and **SQLite**. Track income and expenses (one-time and recurring), manage bank accounts, and view a monthly financial dashboard.
 
