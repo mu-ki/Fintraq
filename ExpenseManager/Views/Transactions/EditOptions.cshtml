@@ -1,0 +1,37 @@
+@model ExpenseManager.Models.ViewModels.TransactionEditOptionsViewModel
+@{
+    ViewData["Title"] = "Edit Transaction";
+}
+
+<section class="page-header">
+    <div>
+        <p class="eyebrow">Quick Edit</p>
+        <h1>Edit Transaction</h1>
+        <p class="subtitle">@Model.Title</p>
+    </div>
+</section>
+
+<div class="panel">
+    <div class="d-flex flex-wrap gap-2">
+        <a asp-action="EditAmount" asp-route-id="@Model.TransactionId" class="btn btn-primary">Edit Amount</a>
+        <a asp-action="EditDates" asp-route-id="@Model.TransactionId" class="btn btn-outline-secondary">Edit Dates</a>
+
+        @if (Model.ScheduleType == ExpenseManager.Models.ScheduleType.Recurring)
+        {
+            <a asp-action="UpdateFuture" asp-route-id="@Model.TransactionId" class="btn btn-outline-secondary">Update Future Amount</a>
+        }
+    </div>
+
+    <hr />
+
+    <div class="d-flex gap-2">
+        @if (Model.ReturnYear.HasValue && Model.ReturnMonth.HasValue)
+        {
+            <a asp-controller="Dashboard" asp-action="Index" asp-route-year="@Model.ReturnYear" asp-route-month="@Model.ReturnMonth" class="btn btn-outline-secondary">Back to Dashboard</a>
+        }
+        else
+        {
+            <a asp-action="Index" class="btn btn-outline-secondary">Back to Transactions</a>
+        }
+    </div>
+</div>

@@ -30,3 +30,4 @@ publish/
 
 ## Local verification folders
 build-verify*/
+/ExpenseManager/artifacts

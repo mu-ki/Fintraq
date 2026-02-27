@@ -27,7 +27,7 @@ public class CategoriesController(ApplicationDbContext dbContext) : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Create(Category model)
     {
-        model.Name = model.Name.Trim();
+        model.Name = (model.Name ?? string.Empty).Trim();
 
         var exists = await dbContext.Categories.AnyAsync(c =>
             c.Type == model.Type &&
@@ -69,7 +69,7 @@ public class CategoriesController(ApplicationDbContext dbContext) : Controller
             return NotFound();
         }
 
-        input.Name = input.Name.Trim();
+        input.Name = (input.Name ?? string.Empty).Trim();
         var exists = await dbContext.Categories.AnyAsync(c =>
             c.Id != id &&
             c.Type == input.Type &&

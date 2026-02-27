@@ -8,6 +8,8 @@
     var next = new DateTime(Model.Year, Model.Month, 1).AddMonths(1);
     var incomeCategories = Model.CategoryTotals.Where(c => c.Kind == ExpenseManager.Models.TransactionKind.Income).ToList();
     var expenseCategories = Model.CategoryTotals.Where(c => c.Kind == ExpenseManager.Models.TransactionKind.Expense).ToList();
+    var totalRecurring = Model.CompletedRecurringCount + Model.PendingRecurringCount;
+    var completionPct = totalRecurring == 0 ? 0 : (int)Math.Round((double)Model.CompletedRecurringCount * 100 / totalRecurring);
 }
 
 <section class="page-header">
@@ -30,6 +32,18 @@
     </div>
 </section>
 
+<section class="dashboard-hero mb-4">
+    <div>
+        <p class="eyebrow">At A Glance</p>
+        <h2>@selected.ToString("MMMM") momentum: @Model.NetBalance.ToString("N2")</h2>
+        <p class="mb-0">Income is <strong>@Model.TotalIncome.ToString("N2")</strong> and expense is <strong>@Model.TotalExpense.ToString("N2")</strong> for this month.</p>
+    </div>
+    <div class="hero-actions">
+        <a asp-controller="Transactions" asp-action="Create" class="btn btn-light btn-sm">Add Transaction</a>
+        <a asp-controller="Transactions" asp-action="Index" class="btn btn-outline-light btn-sm">View Ledger</a>
+    </div>
+</section>
+
 <section class="row g-4 mb-4">
     <div class="col-12">
         <div class="panel">
@@ -37,21 +51,29 @@
                 <h5>Bank Balances</h5>
             </div>
             <p class="subtitle mb-2">Carry-forwarded up to month end (@(new DateTime(Model.Year, Model.Month, 1).AddMonths(1).AddDays(-1).ToString("dd MMM yyyy"))).</p>
-            <ul class="balance-list">
-                @foreach (var item in Model.BankBalances)
-                {
-                    <li>
-                        <div>
-                            <span class="name">@item.AccountName</span>
-                            @if (item.IsManualOverride)
-                            {
-                                <span class="tag">Manual</span>
-                            }
-                        </div>
-                        <strong>@item.CurrentBalance.ToString("N2")</strong>
-                    </li>
-                }
-            </ul>
+            @if (Model.BankBalances.Any())
+            {
+                <ul class="balance-list">
+                    @foreach (var item in Model.BankBalances)
+                    {
+                        <li>
+                            <div>
+                                <span class="name">@item.AccountName</span>
+                                @if (item.IsManualOverride)
+                                {
+                                    <span class="tag">Manual</span>
+                                }
+                            </div>
+                            <strong>@item.CurrentBalance.ToString("N2")</strong>
+                        </li>
+                    }
+                </ul>
+            }
+            else
+            {
+                <p class="empty-copy">No bank accounts yet. Add one to start tracking rolling balances.</p>
+            }
+            <p class="subtitle mb-2">This year trend by month (@Model.Year).</p>
             <div class="chart-wrap short">
                 <canvas id="accountChart"></canvas>
             </div>
@@ -83,6 +105,9 @@
         <p class="label">Recurring Completion</p>
         <h4>@Model.CompletedRecurringCount / @(Model.CompletedRecurringCount + Model.PendingRecurringCount)</h4>
         <small>@Model.PendingRecurringCount pending this month</small>
+        <div class="completion-meter mt-2" role="progressbar" aria-label="Recurring completion status" aria-valuenow="@completionPct" aria-valuemin="0" aria-valuemax="100">
+            <span style="width:@completionPct%"></span>
+        </div>
     </article>
     <article class="insight-card">
         <p class="label">Top Expense Category</p>
@@ -123,7 +148,7 @@
     <div class="col-12">
         <div class="panel">
             <div class="panel-head">
-                <h5>Recurring Due Items</h5>
+                <h5>Due Items (Recurring + One-Time)</h5>
                 @if (Model.PendingRecurringCount > 0)
                 {
                     <form asp-controller="Transactions" asp-action="MarkAllCompleted" method="post" onsubmit="return confirm('Mark all pending recurring items as paid/received for this month?');">
@@ -140,45 +165,63 @@
                         <tr><th>Title</th><th>Type</th><th>Amount</th><th>Status</th><th></th></tr>
                     </thead>
                     <tbody>
-                    @foreach (var item in Model.RecurringDueItems)
-                    {
-                        <tr>
-                            <td>@item.Title</td>
-                            <td>@item.Kind</td>
-                            <td>@item.Amount.ToString("N2")</td>
-                            <td>
-                                @if (item.IsCompleted)
-                                {
-                                    <span class="badge rounded-pill text-bg-success">Completed</span>
-                                }
-                                else
-                                {
-                                    <span class="badge rounded-pill text-bg-warning">Pending</span>
-                                }
-                            </td>
-                            <td>
-                                @if (!item.IsCompleted)
-                                {
-                                    <a asp-controller="Transactions"
-                                       asp-action="MarkCompleted"
-                                       asp-route-id="@item.TransactionId"
-                                       asp-route-year="@Model.Year"
-                                       asp-route-month="@Model.Month"
-                                       class="btn btn-sm btn-primary">Mark Done</a>
-                                }
-                                else
-                                {
-                                    <form asp-controller="Transactions" asp-action="RevertCompleted" method="post" onsubmit="return confirm('Revert completed status for this month?');">
-                                        @Html.AntiForgeryToken()
-                                        <input type="hidden" name="id" value="@item.TransactionId" />
-                                        <input type="hidden" name="year" value="@Model.Year" />
-                                        <input type="hidden" name="month" value="@Model.Month" />
-                                        <button type="submit" class="btn btn-sm btn-outline-danger">Revert</button>
-                                    </form>
-                                }
-                            </td>
-                        </tr>
-                    }
+                        @if (Model.RecurringDueItems.Any())
+                        {
+                            @foreach (var item in Model.RecurringDueItems)
+                            {
+                                <tr>
+                                    <td>@item.Title</td>
+                                    <td>@item.Kind @(item.IsRecurring ? "(Recurring)" : "(One-Time)")</td>
+                                    <td>@item.Amount.ToString("N2")</td>
+                                    <td>
+                                        @if (item.IsCompleted)
+                                        {
+                                            <span class="badge rounded-pill text-bg-success">Completed</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge rounded-pill text-bg-warning">Pending</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        <div class="d-flex flex-wrap gap-2 align-items-center">
+                                            <a asp-controller="Transactions"
+                                               asp-action="EditOptions"
+                                               asp-route-id="@item.TransactionId"
+                                               asp-route-year="@Model.Year"
+                                               asp-route-month="@Model.Month"
+                                               class="btn btn-sm btn-outline-secondary">Edit</a>
+
+                                            @if (item.IsRecurring && !item.IsCompleted)
+                                            {
+                                                <a asp-controller="Transactions"
+                                                   asp-action="MarkCompleted"
+                                                   asp-route-id="@item.TransactionId"
+                                                   asp-route-year="@Model.Year"
+                                                   asp-route-month="@Model.Month"
+                                                   class="btn btn-sm btn-primary">Mark Done</a>
+                                            }
+                                            else if (item.IsRecurring)
+                                            {
+                                                <form asp-controller="Transactions" asp-action="RevertCompleted" method="post" onsubmit="return confirm('Revert completed status for this month?');">
+                                                    @Html.AntiForgeryToken()
+                                                    <input type="hidden" name="id" value="@item.TransactionId" />
+                                                    <input type="hidden" name="year" value="@Model.Year" />
+                                                    <input type="hidden" name="month" value="@Model.Month" />
+                                                    <button type="submit" class="btn btn-sm btn-outline-danger">Revert</button>
+                                                </form>
+                                            }
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                        else
+                        {
+                            <tr>
+                                <td colspan="5" class="empty-copy py-3">No due items in this month.</td>
+                            </tr>
+                        }
                     </tbody>
                 </table>
             </div>
@@ -195,8 +238,13 @@
         const incomeData = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(incomeCategories.Select(c => c.Total)));
         const expenseLabels = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(expenseCategories.Select(c => c.CategoryName)));
         const expenseData = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(expenseCategories.Select(c => c.Total)));
-        const accountLabels = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.BankBalances.Select(b => b.AccountName)));
-        const accountValues = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.BankBalances.Select(b => b.CurrentBalance)));
+        const yearMonthLabels = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.YearMonthLabels));
+        const yearlyAccountBalances = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
+            Model.YearlyAccountBalances.Select(series => new
+            {
+                accountName = series.AccountName,
+                monthlyBalances = series.MonthlyBalances
+            })));
 
         new Chart(document.getElementById('incomeExpenseChart'), {
             type: 'bar',
@@ -224,21 +272,32 @@
         });
 
         new Chart(document.getElementById('accountChart'), {
-            type: 'bar',
+            type: 'line',
             data: {
-                labels: accountLabels,
-                datasets: [{
-                    label: 'Balance',
-                    data: accountValues,
-                    backgroundColor: '#3f7cac',
-                    borderRadius: 8
-                }]
+                labels: yearMonthLabels,
+                datasets: yearlyAccountBalances.map((series, index) => {
+                    const palette = ['#3f7cac', '#da5552', '#2ea26b', '#e58f65', '#6f9eaf', '#f2cc8f'];
+                    const color = palette[index % palette.length];
+                    return {
+                        label: series.accountName,
+                        data: series.monthlyBalances,
+                        borderColor: color,
+                        backgroundColor: color,
+                        pointRadius: 3,
+                        pointHoverRadius: 5,
+                        tension: 0.25
+                    };
+                })
             },
             options: {
-                plugins: { legend: { display: false } },
+                plugins: { legend: { display: true, position: 'bottom' } },
                 maintainAspectRatio: false,
                 scales: { x: { grid: { display: false } }, y: { beginAtZero: true } }
             }
         });
     </script>
 }
+
+
+
+

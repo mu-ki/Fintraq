@@ -49,8 +49,11 @@ app.MapRazorPages()
 using (var scope = app.Services.CreateScope())
 {
     var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+    var userManager = scope.ServiceProvider.GetRequiredService<UserManager<IdentityUser>>();
     await dbContext.Database.MigrateAsync();
     await SeedData.SeedCategoriesAsync(dbContext);
+    await SeedData.SeedDemoUserAsync(userManager);
+    await SeedData.SeedDemoFinancialDataAsync(dbContext, userManager);
 }
 
 app.Run();

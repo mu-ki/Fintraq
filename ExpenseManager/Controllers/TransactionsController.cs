@@ -56,6 +56,37 @@ public class TransactionsController(
         return View(vm);
     }
 
+    public async Task<IActionResult> EditOptions(Guid id, int? year = null, int? month = null)
+    {
+        var userId = userManager.GetUserId(User);
+        if (string.IsNullOrWhiteSpace(userId))
+        {
+            return Challenge();
+        }
+
+        var transaction = await dbContext.Transactions
+            .SingleOrDefaultAsync(t =>
+                t.Id == id &&
+                t.UserId == userId &&
+                t.EntryRole == TransactionEntryRole.Standard);
+
+        if (transaction is null)
+        {
+            return NotFound();
+        }
+
+        var vm = new TransactionEditOptionsViewModel
+        {
+            TransactionId = transaction.Id,
+            Title = transaction.Title,
+            ScheduleType = transaction.ScheduleType,
+            ReturnYear = year,
+            ReturnMonth = month
+        };
+
+        return View(vm);
+    }
+
     public async Task<IActionResult> Create()
     {
         var vm = new TransactionCreateViewModel
@@ -644,3 +675,5 @@ public class TransactionsController(
             .ToListAsync();
     }
 }
+
+

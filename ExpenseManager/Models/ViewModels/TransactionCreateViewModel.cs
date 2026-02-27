@@ -45,6 +45,15 @@ public class TransactionCreateViewModel
     public List<BankAccount> Accounts { get; set; } = new();
 }
 
+public class TransactionEditOptionsViewModel
+{
+    public Guid TransactionId { get; set; }
+    public string Title { get; set; } = string.Empty;
+    public ScheduleType ScheduleType { get; set; }
+    public int? ReturnYear { get; set; }
+    public int? ReturnMonth { get; set; }
+}
+
 public class RecurringUpdateFutureViewModel
 {
     public Guid TransactionId { get; set; }

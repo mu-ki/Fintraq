@@ -9,12 +9,20 @@ public class DashboardViewModel
     public decimal NetBalance => TotalIncome - TotalExpense;
     public decimal Savings => NetBalance;
     public List<BankBalanceViewModel> BankBalances { get; set; } = new();
+    public List<string> YearMonthLabels { get; set; } = new();
+    public List<AccountBalanceSeriesViewModel> YearlyAccountBalances { get; set; } = new();
     public List<RecurringDueItemViewModel> RecurringDueItems { get; set; } = new();
     public List<CategoryTotalViewModel> CategoryTotals { get; set; } = new();
     public int CompletedRecurringCount { get; set; }
     public int PendingRecurringCount { get; set; }
     public string TopExpenseCategory { get; set; } = "N/A";
     public decimal HighestDueExpense { get; set; }
+}
+
+public class AccountBalanceSeriesViewModel
+{
+    public string AccountName { get; set; } = string.Empty;
+    public List<decimal> MonthlyBalances { get; set; } = new();
 }
 
 public class RecurringDueItemViewModel
@@ -24,6 +32,8 @@ public class RecurringDueItemViewModel
     public decimal Amount { get; set; }
     public TransactionKind Kind { get; set; }
     public bool IsCompleted { get; set; }
+    public bool IsRecurring { get; set; }
+    public DateOnly? DueDate { get; set; }
 }
 
 public class BankBalanceViewModel

@@ -5,6 +5,10 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UserSecretsId>aspnet-ExpenseManager-488a8a6b-ac6a-4705-879b-a953b39fd045</UserSecretsId>
+    <!-- Razor Build Server speeds up Razor compilation (disable only if project path has spaces) -->
+    <UseRazorBuildServer>true</UseRazorBuildServer>
+    <!-- Avoid compressing/scanning wwwroot at build time (NET 9+ static web assets) -->
+    <DisableStaticWebAssetCompression>true</DisableStaticWebAssetCompression>
   </PropertyGroup>
 
   <ItemGroup>

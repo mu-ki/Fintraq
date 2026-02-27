@@ -2,6 +2,7 @@ using ExpenseManager.Data;
 using ExpenseManager.Models;
 using ExpenseManager.Models.ViewModels;
 using Microsoft.EntityFrameworkCore;
+using System.Globalization;
 
 namespace ExpenseManager.Services;
 
@@ -98,17 +99,73 @@ public class DashboardService(ApplicationDbContext dbContext) : IDashboardServic
 
         var accounts = await dbContext.BankAccounts.Where(a => a.UserId == userId).ToListAsync();
         var bankBalances = new List<BankBalanceViewModel>();
+        var yearMonthLabels = Enumerable.Range(1, 12)
+            .Select(m => new DateTime(year, m, 1).ToString("MMM", CultureInfo.InvariantCulture))
+            .ToList();
+        var yearlyAccountBalances = new List<AccountBalanceSeriesViewModel>();
+
         foreach (var account in accounts)
         {
+            var currentBalance = await GetBalanceAsOfMonthAsync(userId, account.Id, year, month);
             bankBalances.Add(new BankBalanceViewModel
             {
                 AccountId = account.Id,
                 AccountName = account.AccountName,
-                CurrentBalance = await GetBalanceAsOfMonthAsync(userId, account.Id, year, month),
+                CurrentBalance = currentBalance,
                 IsManualOverride = account.UseManualOverride
+            });
+
+            var monthlyBalances = new List<decimal>(12);
+            for (var m = 1; m <= 12; m++)
+            {
+                monthlyBalances.Add(await GetBalanceAsOfMonthAsync(userId, account.Id, year, m));
+            }
+
+            yearlyAccountBalances.Add(new AccountBalanceSeriesViewModel
+            {
+                AccountName = account.AccountName,
+                MonthlyBalances = monthlyBalances
             });
         }
 
+        var today = DateOnly.FromDateTime(DateTime.Now);
+        var selectedMonthStart = new DateOnly(year, month, 1);
+
+        var oneTimeDueItems = oneTimes
+            .Select(t =>
+            {
+                var dueDate = t.Date ?? selectedMonthStart;
+                var isCompleted = selectedMonthStart < new DateOnly(today.Year, today.Month, 1)
+                    ? true
+                    : selectedMonthStart > new DateOnly(today.Year, today.Month, 1)
+                        ? false
+                        : dueDate < today;
+
+                return new RecurringDueItemViewModel
+                {
+                    TransactionId = t.Id,
+                    Title = t.Title,
+                    Amount = t.Amount,
+                    Kind = t.Kind,
+                    IsCompleted = isCompleted,
+                    IsRecurring = false,
+                    DueDate = t.Date
+                };
+            });
+
+        var recurringDueItems = dueRecurring
+            .Select(t => new RecurringDueItemViewModel
+            {
+                TransactionId = t.Id,
+                Title = t.Title,
+                Amount = EffectiveRecurringAmount(t),
+                Kind = t.Kind,
+                IsCompleted = completionAmountByParent.ContainsKey(t.Id),
+                IsRecurring = true,
+                DueDate = selectedMonthStart
+            });
+
+        var dueItems = recurringDueItems.Concat(oneTimeDueItems).OrderBy(t => t.Kind).ThenBy(t => t.Title).ToList();
         return new DashboardViewModel
         {
             Year = year,
@@ -116,6 +173,8 @@ public class DashboardService(ApplicationDbContext dbContext) : IDashboardServic
             TotalIncome = totalIncome,
             TotalExpense = totalExpense,
             BankBalances = bankBalances,
+            YearMonthLabels = yearMonthLabels,
+            YearlyAccountBalances = yearlyAccountBalances,
             CategoryTotals = categoryTotals,
             CompletedRecurringCount = dueRecurring.Count(t => completionAmountByParent.ContainsKey(t.Id)),
             PendingRecurringCount = dueRecurring.Count(t => !completionAmountByParent.ContainsKey(t.Id)),
@@ -129,18 +188,7 @@ public class DashboardService(ApplicationDbContext dbContext) : IDashboardServic
                 .Select(EffectiveRecurringAmount)
                 .DefaultIfEmpty(0m)
                 .Max(),
-            RecurringDueItems = dueRecurring
-                .OrderBy(t => t.Kind)
-                .ThenBy(t => t.Title)
-                .Select(t => new RecurringDueItemViewModel
-                {
-                    TransactionId = t.Id,
-                    Title = t.Title,
-                    Amount = EffectiveRecurringAmount(t),
-                    Kind = t.Kind,
-                    IsCompleted = completionAmountByParent.ContainsKey(t.Id)
-                })
-                .ToList()
+            RecurringDueItems = dueItems
         };
     }
 
@@ -319,3 +367,5 @@ public class DashboardService(ApplicationDbContext dbContext) : IDashboardServic
         return (diffMonths / interval) + 1;
     }
 }
+
+

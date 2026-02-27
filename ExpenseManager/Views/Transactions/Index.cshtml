@@ -50,12 +50,7 @@
                     </td>
                     <td>
                         <div class="d-flex gap-2">
-                            <a asp-action="EditAmount" asp-route-id="@item.Id" class="btn btn-sm btn-outline-secondary">Edit Amount</a>
-                            <a asp-action="EditDates" asp-route-id="@item.Id" class="btn btn-sm btn-outline-secondary">Edit Dates</a>
-                            @if (item.ScheduleType == ExpenseManager.Models.ScheduleType.Recurring)
-                            {
-                                <a asp-action="UpdateFuture" asp-route-id="@item.Id" class="btn btn-sm btn-outline-secondary">Update Future</a>
-                            }
+                            <a asp-action="EditOptions" asp-route-id="@item.Id" class="btn btn-sm btn-outline-secondary">Edit</a>
                             <form asp-action="Delete" method="post" onsubmit="return confirm('Delete this transaction?');">
                                 @Html.AntiForgeryToken()
                                 <input type="hidden" name="id" value="@item.Id" />
@@ -113,8 +108,7 @@
                                 </td>
                                 <td>
                                     <div class="d-flex gap-2">
-                                        <a asp-action="EditAmount" asp-route-id="@item.Id" class="btn btn-sm btn-outline-secondary">Edit Amount</a>
-                                        <a asp-action="EditDates" asp-route-id="@item.Id" class="btn btn-sm btn-outline-secondary">Edit Dates</a>
+                                        <a asp-action="EditOptions" asp-route-id="@item.Id" class="btn btn-sm btn-outline-secondary">Edit</a>
                                         <form asp-action="Delete" method="post" onsubmit="return confirm('Delete this transaction?');">
                                             @Html.AntiForgeryToken()
                                             <input type="hidden" name="id" value="@item.Id" />
@@ -131,3 +125,4 @@
         </div>
     </div>
 </div>
+

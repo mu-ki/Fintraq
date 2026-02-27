@@ -8,6 +8,7 @@ A secure web-based personal finance manager built with **ASP.NET Core**, **Entit
 
 - [Tech Stack](#tech-stack)
 - [Features](#features)
+- [Images](#images)
 - [Getting Started](#getting-started)
 - [Project Structure](#project-structure)
 
@@ -189,6 +190,20 @@ Start/end date and “is active” determine which of these due dates are includ
 - Pausing or deleting recurring entry → IsActive and soft delete prevent it from appearing in future projections.
 - Recurring completion with different amount → “Mark as completed” can store a custom amount for that month.
 - Bank balance → Uses initial balance + transactions (and optional manual override) for the selected or current month.
+
+---
+
+## Images
+
+Screenshots from the application (from `ExpenseManager/Images/`):
+
+| Screen | Screenshot |
+|--------|------------|
+| **Login** | ![Login](ExpenseManager/Images/screencapture-localhost-7153-Identity-Account-Login-2026-02-28-03_35_11.png) |
+| **Dashboard** | ![Dashboard](ExpenseManager/Images/screencapture-localhost-7153-Dashboard-2026-02-28-03_34_08.png) |
+| **Transactions** | ![Transactions](ExpenseManager/Images/screencapture-localhost-7153-Transactions-2026-02-28-03_34_25.png) |
+| **Bank Accounts** | ![Bank Accounts](ExpenseManager/Images/screencapture-localhost-7153-BankAccounts-2026-02-28-03_34_33.png) |
+| **Categories** | ![Categories](ExpenseManager/Images/screencapture-localhost-7153-Categories-2026-02-28-03_34_40.png) |
 
 ---
 
