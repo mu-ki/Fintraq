@@ -1,0 +1,133 @@
+@model ExpenseManager.Models.ViewModels.TransactionListViewModel
+@{
+    ViewData["Title"] = "Transactions";
+}
+
+<section class="page-header">
+    <div>
+        <p class="eyebrow">Ledger</p>
+        <h1>Transactions</h1>
+        <p class="subtitle">Active items are shown first. Completed/inactive items are minimized below.</p>
+    </div>
+    <a asp-action="Create" class="btn btn-primary">Add Transaction</a>
+</section>
+
+<div class="panel mb-3">
+    <div class="panel-head">
+        <h5 class="mb-0">Active Transactions (@Model.ActiveTransactions.Count)</h5>
+    </div>
+    <div class="table-responsive">
+        <table class="table app-table align-middle mb-0">
+            <thead>
+                <tr>
+                    <th>Title</th>
+                    <th>Kind</th>
+                    <th>Schedule</th>
+                    <th>Amount</th>
+                    <th>Category</th>
+                    <th>Date / Range</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+            @foreach (var item in Model.ActiveTransactions)
+            {
+                <tr>
+                    <td>@item.Title</td>
+                    <td><span class="badge rounded-pill @(item.Kind == ExpenseManager.Models.TransactionKind.Income ? "text-bg-success" : "text-bg-danger")">@item.Kind</span></td>
+                    <td>@item.ScheduleType @if (item.Frequency.HasValue) { <text>(@item.Frequency)</text> }</td>
+                    <td>@item.Amount.ToString("N2")</td>
+                    <td>@item.Category?.Name</td>
+                    <td>
+                        @if (item.ScheduleType == ExpenseManager.Models.ScheduleType.OneTime)
+                        {
+                            <span>@item.Date</span>
+                        }
+                        else
+                        {
+                            <span>@item.StartDate to @(item.EndDate.HasValue ? item.EndDate.Value : "No end date")</span>
+                        }
+                    </td>
+                    <td>
+                        <div class="d-flex gap-2">
+                            <a asp-action="EditAmount" asp-route-id="@item.Id" class="btn btn-sm btn-outline-secondary">Edit Amount</a>
+                            <a asp-action="EditDates" asp-route-id="@item.Id" class="btn btn-sm btn-outline-secondary">Edit Dates</a>
+                            @if (item.ScheduleType == ExpenseManager.Models.ScheduleType.Recurring)
+                            {
+                                <a asp-action="UpdateFuture" asp-route-id="@item.Id" class="btn btn-sm btn-outline-secondary">Update Future</a>
+                            }
+                            <form asp-action="Delete" method="post" onsubmit="return confirm('Delete this transaction?');">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="id" value="@item.Id" />
+                                <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="accordion" id="completedTransactionsAccordion">
+    <div class="accordion-item">
+        <h2 class="accordion-header" id="headingCompleted">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseCompleted" aria-expanded="false" aria-controls="collapseCompleted">
+                Completed / Inactive Transactions (@Model.CompletedTransactions.Count)
+            </button>
+        </h2>
+        <div id="collapseCompleted" class="accordion-collapse collapse" aria-labelledby="headingCompleted" data-bs-parent="#completedTransactionsAccordion">
+            <div class="accordion-body p-0">
+                <div class="table-responsive">
+                    <table class="table app-table align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>Title</th>
+                                <th>Kind</th>
+                                <th>Schedule</th>
+                                <th>Amount</th>
+                                <th>Category</th>
+                                <th>Date / Range</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        @foreach (var item in Model.CompletedTransactions)
+                        {
+                            <tr class="table-light">
+                                <td>@item.Title</td>
+                                <td><span class="badge rounded-pill @(item.Kind == ExpenseManager.Models.TransactionKind.Income ? "text-bg-success" : "text-bg-danger")">@item.Kind</span></td>
+                                <td>@item.ScheduleType @if (item.Frequency.HasValue) { <text>(@item.Frequency)</text> }</td>
+                                <td>@item.Amount.ToString("N2")</td>
+                                <td>@item.Category?.Name</td>
+                                <td>
+                                    @if (item.ScheduleType == ExpenseManager.Models.ScheduleType.OneTime)
+                                    {
+                                        <span>@item.Date</span>
+                                    }
+                                    else
+                                    {
+                                        <span>@item.StartDate to @(item.EndDate.HasValue ? item.EndDate.Value : "No end date")</span>
+                                    }
+                                </td>
+                                <td>
+                                    <div class="d-flex gap-2">
+                                        <a asp-action="EditAmount" asp-route-id="@item.Id" class="btn btn-sm btn-outline-secondary">Edit Amount</a>
+                                        <a asp-action="EditDates" asp-route-id="@item.Id" class="btn btn-sm btn-outline-secondary">Edit Dates</a>
+                                        <form asp-action="Delete" method="post" onsubmit="return confirm('Delete this transaction?');">
+                                            @Html.AntiForgeryToken()
+                                            <input type="hidden" name="id" value="@item.Id" />
+                                            <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

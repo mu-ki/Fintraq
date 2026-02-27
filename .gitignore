@@ -1,0 +1,32 @@
+## Build artifacts
+bin/
+obj/
+out/
+publish/
+
+## User-specific files
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+## IDE
+.vs/
+.vscode/
+
+## Logs
+*.log
+
+## Local databases
+*.db
+*.db-shm
+*.db-wal
+
+## ASP.NET static web assets build outputs
+*.staticwebassets.runtime.json
+*.staticwebassets.endpoints.json
+*.deps.json
+*.runtimeconfig.json
+
+## Local verification folders
+build-verify*/

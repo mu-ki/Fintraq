@@ -1,0 +1,193 @@
+@model ExpenseManager.Models.ViewModels.TransactionCreateViewModel
+@{
+    ViewData["Title"] = "Create Transaction";
+}
+
+<section class="page-header">
+    <div>
+        <p class="eyebrow">New Entry</p>
+        <h1>Create Transaction</h1>
+        <p class="subtitle"><span class="required-star">*</span> indicates required fields.</p>
+    </div>
+</section>
+
+<div class="panel">
+    <form asp-action="Create" method="post" class="row g-3">
+        <div asp-validation-summary="ModelOnly" class="alert alert-danger"></div>
+
+        <div class="col-md-6">
+            <label asp-for="Title" class="form-label required-label"></label>
+            <input asp-for="Title" class="form-control" />
+            <span asp-validation-for="Title" class="text-danger"></span>
+        </div>
+
+        <div class="col-md-3">
+            <label asp-for="Amount" class="form-label required-label"></label>
+            <input asp-for="Amount" class="form-control" />
+            <span asp-validation-for="Amount" class="text-danger"></span>
+        </div>
+
+        <div class="col-md-3">
+            <label asp-for="Kind" class="form-label required-label"></label>
+            <select asp-for="Kind" class="form-select" asp-items="Html.GetEnumSelectList<ExpenseManager.Models.TransactionKind>()"></select>
+        </div>
+
+        <div class="col-md-4">
+            <label asp-for="CategoryId" class="form-label required-label"></label>
+            <select asp-for="CategoryId" class="form-select">
+                <option value="" selected disabled>Select</option>
+                @foreach (var c in Model.Categories)
+                {
+                    <option value="@c.Id">@c.Type - @c.Name</option>
+                }
+            </select>
+            <span asp-validation-for="CategoryId" class="text-danger"></span>
+        </div>
+
+        <div class="col-md-4">
+            <label asp-for="ScheduleType" class="form-label required-label"></label>
+            <select asp-for="ScheduleType" class="form-select" asp-items="Html.GetEnumSelectList<ExpenseManager.Models.ScheduleType>()"></select>
+        </div>
+
+        <div class="col-md-4" id="frequencyGroup">
+            <label asp-for="Frequency" class="form-label">Frequency (Required for recurring)</label>
+            <select asp-for="Frequency" class="form-select" asp-items="Html.GetEnumSelectList<ExpenseManager.Models.RecurrenceFrequency>()">
+                <option value="">Not Applicable</option>
+            </select>
+        </div>
+
+        <div class="col-md-4" id="dateGroup">
+            <label asp-for="Date" class="form-label">Date (Required for one-time)</label>
+            <input asp-for="Date" type="date" class="form-control" />
+            <span asp-validation-for="Date" class="text-danger"></span>
+        </div>
+
+        <div class="col-md-4" id="startDateGroup">
+            <label asp-for="StartDate" class="form-label">Start Date (Required for recurring)</label>
+            <input asp-for="StartDate" type="date" class="form-control" />
+            <span asp-validation-for="StartDate" class="text-danger"></span>
+        </div>
+
+        <div class="col-md-4" id="endDateGroup">
+            <label asp-for="EndDate" class="form-label">End Date (Optional)</label>
+            <input asp-for="EndDate" type="date" class="form-control" />
+            <span asp-validation-for="EndDate" class="text-danger"></span>
+        </div>
+
+        <div class="col-md-6" id="paidFromGroup">
+            <label asp-for="PaidFromAccountId" class="form-label">Paid From Account (Required for expense)</label>
+            <select asp-for="PaidFromAccountId" class="form-select">
+                <option value="">Select</option>
+                @foreach (var a in Model.Accounts)
+                {
+                    <option value="@a.Id">@a.AccountName</option>
+                }
+            </select>
+            <span asp-validation-for="PaidFromAccountId" class="text-danger"></span>
+        </div>
+
+        <div class="col-md-6" id="receivedToGroup">
+            <label asp-for="ReceivedToAccountId" class="form-label">Received To Account (Optional for income)</label>
+            <select asp-for="ReceivedToAccountId" class="form-select">
+                <option value="">Select</option>
+                @foreach (var a in Model.Accounts)
+                {
+                    <option value="@a.Id">@a.AccountName</option>
+                }
+            </select>
+        </div>
+
+        <div class="col-12 d-flex gap-2">
+            <button type="submit" class="btn btn-primary">Save</button>
+            <a asp-action="Index" class="btn btn-outline-secondary">Cancel</a>
+        </div>
+    </form>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        (function () {
+            const kind = document.getElementById("Kind");
+            const schedule = document.getElementById("ScheduleType");
+            const category = document.getElementById("CategoryId");
+            const frequency = document.getElementById("Frequency");
+            const date = document.getElementById("Date");
+            const startDate = document.getElementById("StartDate");
+            const endDate = document.getElementById("EndDate");
+            const paidFrom = document.getElementById("PaidFromAccountId");
+            const receivedTo = document.getElementById("ReceivedToAccountId");
+            const categories = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
+                Model.Categories.Select(c => new { id = c.Id, name = c.Name, type = (int)c.Type })
+            ));
+
+            const dateGroup = document.getElementById("dateGroup");
+            const frequencyGroup = document.getElementById("frequencyGroup");
+            const startDateGroup = document.getElementById("startDateGroup");
+            const endDateGroup = document.getElementById("endDateGroup");
+            const paidFromGroup = document.getElementById("paidFromGroup");
+            const receivedToGroup = document.getElementById("receivedToGroup");
+
+            function setVisible(group, show) {
+                group.classList.toggle("d-none", !show);
+            }
+
+            function refreshForm() {
+                const isRecurring = schedule.value === "2";
+                const isExpense = kind.value === "2";
+                const currentCategory = category.value;
+
+                setVisible(dateGroup, !isRecurring);
+                setVisible(frequencyGroup, isRecurring);
+                setVisible(startDateGroup, isRecurring);
+                setVisible(endDateGroup, isRecurring);
+
+                setVisible(paidFromGroup, isExpense);
+                setVisible(receivedToGroup, !isExpense);
+
+                if (isRecurring) {
+                    date.value = "";
+                } else {
+                    frequency.value = "";
+                    startDate.value = "";
+                    endDate.value = "";
+                }
+
+                if (isExpense) {
+                    receivedTo.value = "";
+                } else {
+                    paidFrom.value = "";
+                }
+
+                renderCategoryOptions(isExpense ? 2 : 1, currentCategory);
+            }
+
+            function renderCategoryOptions(typeValue, selectedId) {
+                category.innerHTML = "";
+
+                const placeholder = document.createElement("option");
+                placeholder.value = "";
+                placeholder.textContent = "Select";
+                placeholder.disabled = true;
+                placeholder.selected = true;
+                category.appendChild(placeholder);
+
+                const filtered = categories.filter(c => c.type === typeValue);
+                for (const c of filtered) {
+                    const opt = document.createElement("option");
+                    opt.value = c.id;
+                    opt.textContent = c.name;
+                    if (selectedId && selectedId === c.id) {
+                        opt.selected = true;
+                        placeholder.selected = false;
+                    }
+                    category.appendChild(opt);
+                }
+            }
+
+            kind.addEventListener("change", refreshForm);
+            schedule.addEventListener("change", refreshForm);
+            refreshForm();
+        })();
+    </script>
+}

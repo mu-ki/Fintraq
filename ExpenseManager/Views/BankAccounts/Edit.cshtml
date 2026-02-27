@@ -1,0 +1,49 @@
+@model ExpenseManager.Models.BankAccount
+@{
+    ViewData["Title"] = "Edit Bank Account";
+}
+
+<section class="page-header">
+    <div>
+        <p class="eyebrow">Update Account</p>
+        <h1>Edit Bank Account</h1>
+        <p class="subtitle"><span class="required-star">*</span> indicates required fields.</p>
+    </div>
+</section>
+
+<div class="panel">
+    <form asp-action="Edit" method="post" class="row g-3">
+        <div asp-validation-summary="ModelOnly" class="alert alert-danger"></div>
+        <div class="col-md-6">
+            <label asp-for="AccountName" class="form-label required-label"></label>
+            <input asp-for="AccountName" class="form-control" />
+            <span asp-validation-for="AccountName" class="text-danger"></span>
+        </div>
+        <div class="col-md-3">
+            <label asp-for="AccountType" class="form-label required-label"></label>
+            <select asp-for="AccountType" class="form-select" asp-items="Html.GetEnumSelectList<ExpenseManager.Models.AccountType>()"></select>
+        </div>
+        <div class="col-md-3">
+            <label asp-for="InitialBalance" class="form-label required-label"></label>
+            <input asp-for="InitialBalance" class="form-control" />
+            <span asp-validation-for="InitialBalance" class="text-danger"></span>
+        </div>
+        <div class="col-md-4 form-check ms-2">
+            <input asp-for="UseManualOverride" class="form-check-input" />
+            <label asp-for="UseManualOverride" class="form-check-label"></label>
+        </div>
+        <div class="col-md-4">
+            <label asp-for="ManualBalanceOverride" class="form-label"></label>
+            <input asp-for="ManualBalanceOverride" class="form-control" />
+            <span asp-validation-for="ManualBalanceOverride" class="text-danger"></span>
+        </div>
+        <div class="col-12 d-flex gap-2">
+            <button type="submit" class="btn btn-primary">Save</button>
+            <a asp-action="Index" class="btn btn-outline-secondary">Cancel</a>
+        </div>
+    </form>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

@@ -1,0 +1,45 @@
+@model IEnumerable<ExpenseManager.Models.Category>
+@{
+    ViewData["Title"] = "Categories";
+}
+
+<section class="page-header">
+    <div>
+        <p class="eyebrow">Global Taxonomy</p>
+        <h1>Categories</h1>
+        <p class="subtitle">System categories shared by all users.</p>
+    </div>
+    <a asp-action="Create" class="btn btn-primary">Add Category</a>
+</section>
+
+@if (TempData["Error"] is string errorMessage)
+{
+    <div class="alert alert-danger">@errorMessage</div>
+}
+
+<div class="panel">
+    <table class="table app-table align-middle mb-0">
+        <thead>
+            <tr><th>Type</th><th>Name</th><th></th></tr>
+        </thead>
+        <tbody>
+        @foreach (var item in Model)
+        {
+            <tr>
+                <td><span class="badge rounded-pill @(item.Type == ExpenseManager.Models.CategoryType.Income ? "text-bg-success" : "text-bg-danger")">@item.Type</span></td>
+                <td>@item.Name</td>
+                <td>
+                    <div class="d-flex gap-2">
+                        <a asp-action="Edit" asp-route-id="@item.Id" class="btn btn-sm btn-outline-secondary">Edit</a>
+                        <form asp-action="Delete" method="post" onsubmit="return confirm('Delete this category?');">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="id" value="@item.Id" />
+                            <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
+                        </form>
+                    </div>
+                </td>
+            </tr>
+        }
+        </tbody>
+    </table>
+</div>

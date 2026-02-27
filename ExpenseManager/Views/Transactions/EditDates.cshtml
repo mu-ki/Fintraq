@@ -1,0 +1,159 @@
+@model ExpenseManager.Models.ViewModels.TransactionEditDatesViewModel
+@{
+    ViewData["Title"] = "Edit Dates";
+}
+
+<section class="page-header">
+    <div>
+        <p class="eyebrow">Transaction Dates</p>
+        <h1>Edit Dates</h1>
+        <p class="subtitle">@Model.Title</p>
+    </div>
+</section>
+
+<div class="panel">
+    <form asp-action="EditDates" method="post" class="row g-3">
+        <input asp-for="TransactionId" type="hidden" />
+        <input asp-for="ScheduleType" type="hidden" />
+        <input asp-for="Frequency" type="hidden" />
+        <div asp-validation-summary="ModelOnly" class="alert alert-danger"></div>
+
+        @if (Model.ScheduleType == ExpenseManager.Models.ScheduleType.OneTime)
+        {
+            <div class="col-md-4">
+                <label asp-for="Date" class="form-label required-label"></label>
+                <input asp-for="Date" type="date" class="form-control" />
+                <span asp-validation-for="Date" class="text-danger"></span>
+            </div>
+        }
+        else
+        {
+            <div class="col-md-4">
+                <label asp-for="StartDate" class="form-label required-label"></label>
+                <input asp-for="StartDate" type="date" class="form-control" />
+                <span asp-validation-for="StartDate" class="text-danger"></span>
+            </div>
+            <div class="col-md-4">
+                <label asp-for="EndDate" class="form-label">End Date (Optional)</label>
+                <input asp-for="EndDate" type="date" class="form-control" />
+                <span asp-validation-for="EndDate" class="text-danger"></span>
+            </div>
+            <div class="col-12">
+                <div class="panel mt-2">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h5 class="mb-0">Installment Dates</h5>
+                        <small id="installmentCount" class="text-muted"></small>
+                    </div>
+                    <div id="installmentDates" class="d-flex flex-wrap gap-2"></div>
+                    <small class="text-muted d-block mt-2">If End Date is empty, preview shows first 36 installments.</small>
+                </div>
+            </div>
+        }
+
+        <div class="col-12 d-flex gap-2">
+            <button type="submit" class="btn btn-primary">Save</button>
+            <a asp-action="Index" class="btn btn-outline-secondary">Cancel</a>
+        </div>
+    </form>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    @if (Model.ScheduleType == ExpenseManager.Models.ScheduleType.Recurring)
+    {
+        <script>
+            (function () {
+                const startInput = document.getElementById("StartDate");
+                const endInput = document.getElementById("EndDate");
+                const frequency = document.getElementById("Frequency").value;
+                const list = document.getElementById("installmentDates");
+                const countLabel = document.getElementById("installmentCount");
+
+                const maxPreviewWithoutEnd = 36;
+
+                function parseDate(value) {
+                    if (!value) return null;
+                    const d = new Date(value + "T00:00:00");
+                    return isNaN(d.getTime()) ? null : d;
+                }
+
+                function formatDate(d) {
+                    const day = String(d.getDate()).padStart(2, "0");
+                    const month = String(d.getMonth() + 1).padStart(2, "0");
+                    const year = d.getFullYear();
+                    return `${day}-${month}-${year}`;
+                }
+
+                function addStep(date, freq) {
+                    const next = new Date(date.getTime());
+                    switch (freq) {
+                        case "1":
+                        case "Weekly":
+                            next.setDate(next.getDate() + 7);
+                            break;
+                        case "2":
+                        case "Monthly":
+                            next.setMonth(next.getMonth() + 1);
+                            break;
+                        case "3":
+                        case "Quarterly":
+                            next.setMonth(next.getMonth() + 3);
+                            break;
+                        case "4":
+                        case "Every4Months":
+                            next.setMonth(next.getMonth() + 4);
+                            break;
+                        case "5":
+                        case "HalfYearly":
+                            next.setMonth(next.getMonth() + 6);
+                            break;
+                        case "6":
+                        case "Yearly":
+                            next.setFullYear(next.getFullYear() + 1);
+                            break;
+                        default: return null;
+                    }
+                    return next;
+                }
+
+                function renderInstallments() {
+                    const start = parseDate(startInput.value);
+                    const end = parseDate(endInput.value);
+                    list.innerHTML = "";
+                    countLabel.textContent = "";
+
+                    if (!start || !frequency) {
+                        return;
+                    }
+
+                    if (end && end < start) {
+                        countLabel.textContent = "End Date must be on/after Start Date.";
+                        return;
+                    }
+
+                    let current = new Date(start.getTime());
+                    let count = 0;
+
+                    while (current) {
+                        if (end && current > end) break;
+                        if (!end && count >= maxPreviewWithoutEnd) break;
+
+                        const tag = document.createElement("span");
+                        tag.className = "badge rounded-pill text-bg-light border";
+                        tag.textContent = formatDate(current);
+                        list.appendChild(tag);
+
+                        count++;
+                        current = addStep(current, frequency);
+                    }
+
+                    countLabel.textContent = `${count} installment date(s) shown`;
+                }
+
+                startInput.addEventListener("change", renderInstallments);
+                endInput.addEventListener("change", renderInstallments);
+                renderInstallments();
+            })();
+        </script>
+    }
+}

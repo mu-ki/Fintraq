@@ -1,0 +1,244 @@
+@model ExpenseManager.Models.ViewModels.DashboardViewModel
+@{
+    ViewData["Title"] = "Dashboard";
+    var selected = new DateTime(Model.Year, Model.Month, 1);
+    var now = DateTime.Now;
+    var isCurrentMonth = selected.Year == now.Year && selected.Month == now.Month;
+    var prev = new DateTime(Model.Year, Model.Month, 1).AddMonths(-1);
+    var next = new DateTime(Model.Year, Model.Month, 1).AddMonths(1);
+    var incomeCategories = Model.CategoryTotals.Where(c => c.Kind == ExpenseManager.Models.TransactionKind.Income).ToList();
+    var expenseCategories = Model.CategoryTotals.Where(c => c.Kind == ExpenseManager.Models.TransactionKind.Expense).ToList();
+}
+
+<section class="page-header">
+    <div>
+        <p class="eyebrow">Monthly View</p>
+        <h1>Financial Dashboard</h1>
+        <div class="month-indicator-wrap">
+            <span class="month-indicator @(isCurrentMonth ? "month-indicator-current" : string.Empty)">@selected.ToString("MMMM yyyy")</span>
+            @if (isCurrentMonth)
+            {
+                <span class="current-month-pill">Current Month</span>
+            }
+        </div>
+        <p class="subtitle">Snapshot for selected month</p>
+    </div>
+    <div class="month-switch">
+        <a class="btn btn-outline-secondary btn-sm month-nav-btn" asp-action="Index" asp-route-year="@prev.Year" asp-route-month="@prev.Month">Previous</a>
+        <span class="month-switch-label @(isCurrentMonth ? "month-switch-label-current" : string.Empty)">@selected.ToString("MMMM yyyy")</span>
+        <a class="btn btn-outline-secondary btn-sm month-nav-btn" asp-action="Index" asp-route-year="@next.Year" asp-route-month="@next.Month">Next</a>
+    </div>
+</section>
+
+<section class="row g-4 mb-4">
+    <div class="col-12">
+        <div class="panel">
+            <div class="panel-head">
+                <h5>Bank Balances</h5>
+            </div>
+            <p class="subtitle mb-2">Carry-forwarded up to month end (@(new DateTime(Model.Year, Model.Month, 1).AddMonths(1).AddDays(-1).ToString("dd MMM yyyy"))).</p>
+            <ul class="balance-list">
+                @foreach (var item in Model.BankBalances)
+                {
+                    <li>
+                        <div>
+                            <span class="name">@item.AccountName</span>
+                            @if (item.IsManualOverride)
+                            {
+                                <span class="tag">Manual</span>
+                            }
+                        </div>
+                        <strong>@item.CurrentBalance.ToString("N2")</strong>
+                    </li>
+                }
+            </ul>
+            <div class="chart-wrap short">
+                <canvas id="accountChart"></canvas>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="kpi-grid mb-4">
+    <article class="kpi-card income">
+        <p>Total Income</p>
+        <h3>@Model.TotalIncome.ToString("N2")</h3>
+    </article>
+    <article class="kpi-card expense">
+        <p>Total Expense</p>
+        <h3>@Model.TotalExpense.ToString("N2")</h3>
+    </article>
+    <article class="kpi-card balance">
+        <p>Net Balance</p>
+        <h3>@Model.NetBalance.ToString("N2")</h3>
+    </article>
+    <article class="kpi-card savings">
+        <p>Savings</p>
+        <h3>@Model.Savings.ToString("N2")</h3>
+    </article>
+</section>
+
+<section class="insight-grid mb-4">
+    <article class="insight-card">
+        <p class="label">Recurring Completion</p>
+        <h4>@Model.CompletedRecurringCount / @(Model.CompletedRecurringCount + Model.PendingRecurringCount)</h4>
+        <small>@Model.PendingRecurringCount pending this month</small>
+    </article>
+    <article class="insight-card">
+        <p class="label">Top Expense Category</p>
+        <h4>@Model.TopExpenseCategory</h4>
+        <small>Based on current month totals</small>
+    </article>
+    <article class="insight-card">
+        <p class="label">Highest Due Expense</p>
+        <h4>@Model.HighestDueExpense.ToString("N2")</h4>
+        <small>Largest recurring due item</small>
+    </article>
+</section>
+
+<section class="row g-4 mb-4">
+    <div class="col-xl-8">
+        <div class="panel">
+            <div class="panel-head">
+                <h5>Income vs Expense</h5>
+            </div>
+            <div class="chart-wrap">
+                <canvas id="incomeExpenseChart"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-4">
+        <div class="panel">
+            <div class="panel-head">
+                <h5>Category Split</h5>
+            </div>
+            <div class="chart-wrap donut">
+                <canvas id="categoryChart"></canvas>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="row g-4">
+    <div class="col-12">
+        <div class="panel">
+            <div class="panel-head">
+                <h5>Recurring Due Items</h5>
+                @if (Model.PendingRecurringCount > 0)
+                {
+                    <form asp-controller="Transactions" asp-action="MarkAllCompleted" method="post" onsubmit="return confirm('Mark all pending recurring items as paid/received for this month?');">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="year" value="@Model.Year" />
+                        <input type="hidden" name="month" value="@Model.Month" />
+                        <button type="submit" class="btn btn-sm btn-outline-secondary">Mark All (Month)</button>
+                    </form>
+                }
+            </div>
+            <div class="table-responsive">
+                <table class="table app-table mb-0">
+                    <thead>
+                        <tr><th>Title</th><th>Type</th><th>Amount</th><th>Status</th><th></th></tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var item in Model.RecurringDueItems)
+                    {
+                        <tr>
+                            <td>@item.Title</td>
+                            <td>@item.Kind</td>
+                            <td>@item.Amount.ToString("N2")</td>
+                            <td>
+                                @if (item.IsCompleted)
+                                {
+                                    <span class="badge rounded-pill text-bg-success">Completed</span>
+                                }
+                                else
+                                {
+                                    <span class="badge rounded-pill text-bg-warning">Pending</span>
+                                }
+                            </td>
+                            <td>
+                                @if (!item.IsCompleted)
+                                {
+                                    <a asp-controller="Transactions"
+                                       asp-action="MarkCompleted"
+                                       asp-route-id="@item.TransactionId"
+                                       asp-route-year="@Model.Year"
+                                       asp-route-month="@Model.Month"
+                                       class="btn btn-sm btn-primary">Mark Done</a>
+                                }
+                                else
+                                {
+                                    <form asp-controller="Transactions" asp-action="RevertCompleted" method="post" onsubmit="return confirm('Revert completed status for this month?');">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="id" value="@item.TransactionId" />
+                                        <input type="hidden" name="year" value="@Model.Year" />
+                                        <input type="hidden" name="month" value="@Model.Month" />
+                                        <button type="submit" class="btn btn-sm btn-outline-danger">Revert</button>
+                                    </form>
+                                }
+                            </td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</section>
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        const income = @Model.TotalIncome.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        const expense = @Model.TotalExpense.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        const incomeLabels = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(incomeCategories.Select(c => c.CategoryName)));
+        const incomeData = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(incomeCategories.Select(c => c.Total)));
+        const expenseLabels = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(expenseCategories.Select(c => c.CategoryName)));
+        const expenseData = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(expenseCategories.Select(c => c.Total)));
+        const accountLabels = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.BankBalances.Select(b => b.AccountName)));
+        const accountValues = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.BankBalances.Select(b => b.CurrentBalance)));
+
+        new Chart(document.getElementById('incomeExpenseChart'), {
+            type: 'bar',
+            data: {
+                labels: ['Income', 'Expense'],
+                datasets: [{
+                    data: [income, expense],
+                    backgroundColor: ['#2ea26b', '#da5552'],
+                    borderRadius: 10
+                }]
+            },
+            options: { plugins: { legend: { display: false } }, maintainAspectRatio: false }
+        });
+
+        new Chart(document.getElementById('categoryChart'), {
+            type: 'doughnut',
+            data: {
+                labels: expenseLabels.length ? expenseLabels : incomeLabels,
+                datasets: [{
+                    data: expenseLabels.length ? expenseData : incomeData,
+                    backgroundColor: ['#da5552', '#3f7cac', '#e58f65', '#6f9eaf', '#f2cc8f', '#81b29a']
+                }]
+            },
+            options: { plugins: { legend: { position: 'bottom' } }, maintainAspectRatio: false }
+        });
+
+        new Chart(document.getElementById('accountChart'), {
+            type: 'bar',
+            data: {
+                labels: accountLabels,
+                datasets: [{
+                    label: 'Balance',
+                    data: accountValues,
+                    backgroundColor: '#3f7cac',
+                    borderRadius: 8
+                }]
+            },
+            options: {
+                plugins: { legend: { display: false } },
+                maintainAspectRatio: false,
+                scales: { x: { grid: { display: false } }, y: { beginAtZero: true } }
+            }
+        });
+    </script>
+}

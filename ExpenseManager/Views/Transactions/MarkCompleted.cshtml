@@ -1,0 +1,39 @@
+@model ExpenseManager.Models.ViewModels.MarkCompletionViewModel
+@{
+    ViewData["Title"] = "Mark as Paid";
+}
+
+<section class="page-header">
+    <div>
+        <p class="eyebrow">Recurring Completion</p>
+        <h1>Mark as @(Model.Kind == ExpenseManager.Models.TransactionKind.Expense ? "Paid" : "Received")</h1>
+        <p class="subtitle">@Model.Title (@Model.Month/@Model.Year)</p>
+    </div>
+</section>
+
+<div class="panel">
+    <form asp-action="MarkCompleted" method="post" class="row g-3">
+        <input asp-for="TransactionId" type="hidden" />
+        <input asp-for="Year" type="hidden" />
+        <input asp-for="Month" type="hidden" />
+        <input asp-for="Title" type="hidden" />
+        <input asp-for="Kind" type="hidden" />
+        <div asp-validation-summary="ModelOnly" class="alert alert-danger"></div>
+
+        <div class="col-md-4">
+            <label asp-for="Amount" class="form-label required-label"></label>
+            <input asp-for="Amount" class="form-control" />
+            <div class="form-text">Prefilled from installment amount. Edit if commission/adjustment applies.</div>
+            <span asp-validation-for="Amount" class="text-danger"></span>
+        </div>
+
+        <div class="col-12 d-flex gap-2">
+            <button type="submit" class="btn btn-primary">Save</button>
+            <a asp-controller="Dashboard" asp-action="Index" asp-route-year="@Model.Year" asp-route-month="@Model.Month" class="btn btn-outline-secondary">Cancel</a>
+        </div>
+    </form>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

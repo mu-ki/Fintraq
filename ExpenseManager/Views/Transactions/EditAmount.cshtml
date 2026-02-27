@@ -1,0 +1,42 @@
+@model ExpenseManager.Models.ViewModels.TransactionEditAmountViewModel
+@{
+    ViewData["Title"] = "Edit Amount";
+}
+
+<section class="page-header">
+    <div>
+        <p class="eyebrow">Transaction Amount</p>
+        <h1>Edit Amount</h1>
+        <p class="subtitle">@Model.Title</p>
+    </div>
+</section>
+
+<div class="panel">
+    <form asp-action="EditAmount" method="post" class="row g-3">
+        <input asp-for="TransactionId" type="hidden" />
+        <input asp-for="ScheduleType" type="hidden" />
+        <div asp-validation-summary="ModelOnly" class="alert alert-danger"></div>
+
+        <div class="col-md-4">
+            <label asp-for="Amount" class="form-label required-label"></label>
+            <input asp-for="Amount" class="form-control" />
+            <span asp-validation-for="Amount" class="text-danger"></span>
+        </div>
+
+        @if (Model.ScheduleType == ExpenseManager.Models.ScheduleType.Recurring)
+        {
+            <div class="col-12">
+                <small class="text-muted">For future-only amount change behavior, use <strong>Update Future</strong> from the Transactions list.</small>
+            </div>
+        }
+
+        <div class="col-12 d-flex gap-2">
+            <button type="submit" class="btn btn-primary">Save</button>
+            <a asp-action="Index" class="btn btn-outline-secondary">Cancel</a>
+        </div>
+    </form>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

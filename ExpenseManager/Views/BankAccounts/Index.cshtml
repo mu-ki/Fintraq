@@ -1,0 +1,51 @@
+@model IEnumerable<ExpenseManager.Models.BankAccount>
+@{
+    ViewData["Title"] = "Bank Accounts";
+    var balances = (Dictionary<Guid, decimal>)ViewBag.Balances;
+}
+
+<section class="page-header">
+    <div>
+        <p class="eyebrow">Accounts</p>
+        <h1>Bank Accounts</h1>
+        <p class="subtitle">Track balance strategy with calculated or manual override mode.</p>
+    </div>
+    <a asp-action="Create" class="btn btn-primary">Add Account</a>
+</section>
+
+<div class="panel">
+    <table class="table app-table align-middle mb-0">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Type</th>
+                <th>Initial</th>
+                <th>Current</th>
+                <th>Mode</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+        @foreach (var item in Model)
+        {
+            <tr>
+                <td>@item.AccountName</td>
+                <td>@item.AccountType</td>
+                <td>@item.InitialBalance.ToString("N2")</td>
+                <td>@balances[item.Id].ToString("N2")</td>
+                <td><span class="badge rounded-pill @(item.UseManualOverride ? "text-bg-primary" : "text-bg-secondary")">@(item.UseManualOverride ? "Manual Override" : "Calculated")</span></td>
+                <td>
+                    <div class="d-flex gap-2">
+                        <a asp-action="Edit" asp-route-id="@item.Id" class="btn btn-sm btn-outline-secondary">Edit</a>
+                        <form asp-action="Delete" method="post" onsubmit="return confirm('Delete this bank account?');">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="id" value="@item.Id" />
+                            <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
+                        </form>
+                    </div>
+                </td>
+            </tr>
+        }
+        </tbody>
+    </table>
+</div>

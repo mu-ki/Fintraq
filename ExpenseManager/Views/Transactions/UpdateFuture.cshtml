@@ -1,0 +1,40 @@
+@model ExpenseManager.Models.ViewModels.RecurringUpdateFutureViewModel
+@{
+    ViewData["Title"] = "Update Recurring Future";
+}
+
+<section class="page-header">
+    <div>
+        <p class="eyebrow">Recurring Versioning</p>
+        <h1>Update Future Amount</h1>
+        <p class="subtitle">Past months stay unchanged; the new amount starts from the effective date.</p>
+    </div>
+</section>
+
+<div class="panel">
+    <form asp-action="UpdateFuture" method="post" class="row g-3">
+        <input asp-for="TransactionId" type="hidden" />
+        <div asp-validation-summary="ModelOnly" class="alert alert-danger"></div>
+
+        <div class="col-md-4">
+            <label asp-for="NewAmount" class="form-label required-label"></label>
+            <input asp-for="NewAmount" class="form-control" />
+            <span asp-validation-for="NewAmount" class="text-danger"></span>
+        </div>
+
+        <div class="col-md-4">
+            <label asp-for="EffectiveFrom" class="form-label required-label"></label>
+            <input asp-for="EffectiveFrom" type="date" class="form-control" />
+            <span asp-validation-for="EffectiveFrom" class="text-danger"></span>
+        </div>
+
+        <div class="col-12 d-flex gap-2">
+            <button type="submit" class="btn btn-primary">Apply</button>
+            <a asp-action="Index" class="btn btn-outline-secondary">Cancel</a>
+        </div>
+    </form>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}
