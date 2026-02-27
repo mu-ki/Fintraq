@@ -1,6 +1,7 @@
 using ExpenseManager.Models;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
 
 namespace ExpenseManager.Data;
 
@@ -57,6 +58,8 @@ public static class SeedData
             var errors = string.Join("; ", createResult.Errors.Select(e => e.Description));
             throw new InvalidOperationException($"Unable to seed demo user: {errors}");
         }
+
+        await userManager.AddClaimAsync(user, new Claim("display_name", "Demo User"));
     }
 
     public static async Task<bool> IsInitialSetupRunAsync(ApplicationDbContext dbContext)
