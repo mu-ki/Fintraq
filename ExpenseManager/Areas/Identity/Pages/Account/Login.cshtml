@@ -37,6 +37,16 @@
 
             <button id="login-submit" type="submit" class="btn btn-primary w-100">Sign in</button>
 
+            <div class="demo-login mt-3 p-3 rounded bg-light border" data-demo-email="@LoginModel.DemoEmail" data-demo-password="@LoginModel.DemoPassword">
+                <p class="small fw-semibold mb-2 text-secondary">Try without registering</p>
+                <p class="small mb-2">Use the demo account to explore the app:</p>
+                <p class="small mb-0">
+                    <span class="text-muted">Email:</span> <code class="small">@LoginModel.DemoEmail</code><br />
+                    <span class="text-muted">Password:</span> <code class="small">@LoginModel.DemoPassword</code>
+                </p>
+                <button type="button" class="btn btn-outline-primary btn-sm w-100 mt-2" id="demo-login-btn">Login as demo user</button>
+            </div>
+
             <div class="auth-links mt-3 small">
                 <a asp-page="./Register" asp-route-returnUrl="@Model.ReturnUrl">Create new account</a>
                 <a asp-page="./ResendEmailConfirmation">Resend email confirmation</a>
@@ -62,4 +72,24 @@
 
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
+    <script>
+        (function () {
+            var box = document.querySelector('.demo-login');
+            if (!box) return;
+            var email = document.querySelector('#Input_Email');
+            var password = document.querySelector('#Input_Password');
+            function fillAndSubmit() {
+                if (email && password) {
+                    email.value = box.getAttribute('data-demo-email') || '';
+                    password.value = box.getAttribute('data-demo-password') || '';
+                    document.getElementById('account')?.submit();
+                }
+            }
+            document.getElementById('demo-login-btn')?.addEventListener('click', fillAndSubmit);
+            @if (Request.Query["demo"].ToString() == "1")
+            {
+                <text>document.addEventListener('DOMContentLoaded', function () { fillAndSubmit(); });</text>
+            }
+        })();
+    </script>
 }

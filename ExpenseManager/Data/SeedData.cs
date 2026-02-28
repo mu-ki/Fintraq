@@ -5,10 +5,17 @@ using System.Security.Claims;
 
 namespace ExpenseManager.Data;
 
+/// <summary>Demo account used for seeding and displayed on the login page.</summary>
+public static class DemoAccount
+{
+    public const string Email = "demo@expensemanager.local";
+    public const string Password = "Demo@12345";
+}
+
 public static class SeedData
 {
-    private const string DemoEmail = "demo@expensemanager.local";
-    private const string DemoPassword = "Demo@12345";
+    private const string DemoEmail = DemoAccount.Email;
+    private const string DemoPassword = DemoAccount.Password;
 
     public static async Task SeedCategoriesAsync(ApplicationDbContext dbContext)
     {

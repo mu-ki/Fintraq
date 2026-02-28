@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using ExpenseManager.Data;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
@@ -19,6 +20,12 @@ public class LoginModel(SignInManager<IdentityUser> signInManager, ILogger<Login
 
     [TempData]
     public string? ErrorMessage { get; set; }
+
+    /// <summary>Demo account email for "Login as demo user" and display on login page.</summary>
+    public static string DemoEmail => DemoAccount.Email;
+
+    /// <summary>Demo account password for "Login as demo user" (pre-fill only; form posts normally).</summary>
+    public static string DemoPassword => DemoAccount.Password;
 
     public class InputModel
     {

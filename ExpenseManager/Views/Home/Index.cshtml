@@ -6,8 +6,60 @@
     <p class="eyebrow">Personal Finance Control</p>
     <h1>Plan monthly cash flow with recurring precision.</h1>
     <p>Track income, expenses, and account balances with clear month-level visibility.</p>
-    <div class="d-flex gap-2 justify-content-center">
+    <div class="d-flex flex-wrap gap-2 justify-content-center">
         <a asp-controller="Dashboard" asp-action="Index" class="btn btn-primary">Open Dashboard</a>
         <a asp-controller="Transactions" asp-action="Index" class="btn btn-outline-secondary">View Transactions</a>
+        @if (!(User.Identity?.IsAuthenticated ?? false))
+        {
+            <a asp-area="Identity" asp-page="/Account/Login" asp-route-returnUrl="@Url.Content("~/")" asp-route-demo="1" class="btn btn-outline-light">Login as guest</a>
+        }
+    </div>
+</section>
+
+<section class="features-section mt-5">
+    <h2 class="h4 text-center mb-4">What you can do</h2>
+    <div class="row g-4">
+        <div class="col-md-6 col-lg-4">
+            <div class="feature-card p-4 h-100 rounded-3 border bg-white shadow-sm">
+                <div class="feature-icon mb-2 text-primary">📊</div>
+                <h3 class="h6 fw-bold mb-2">Dashboard</h3>
+                <p class="small text-muted mb-0">Month-level view of income, expenses, and balances. See recurring vs one-time items and track what’s completed.</p>
+            </div>
+        </div>
+        <div class="col-md-6 col-lg-4">
+            <div class="feature-card p-4 h-100 rounded-3 border bg-white shadow-sm">
+                <div class="feature-icon mb-2 text-primary">💰</div>
+                <h3 class="h6 fw-bold mb-2">Income &amp; expenses</h3>
+                <p class="small text-muted mb-0">Add one-time or recurring income and expenses. Set frequency (weekly, monthly, quarterly, etc.) and link to bank accounts.</p>
+            </div>
+        </div>
+        <div class="col-md-6 col-lg-4">
+            <div class="feature-card p-4 h-100 rounded-3 border bg-white shadow-sm">
+                <div class="feature-icon mb-2 text-primary">🏦</div>
+                <h3 class="h6 fw-bold mb-2">Bank accounts</h3>
+                <p class="small text-muted mb-0">Manage multiple accounts (salary, savings, etc.) and see how money moves between them.</p>
+            </div>
+        </div>
+        <div class="col-md-6 col-lg-4">
+            <div class="feature-card p-4 h-100 rounded-3 border bg-white shadow-sm">
+                <div class="feature-icon mb-2 text-primary">📁</div>
+                <h3 class="h6 fw-bold mb-2">Categories</h3>
+                <p class="small text-muted mb-0">Use built-in categories (Salary, Food, EMI, Utilities, etc.) or create your own for income and expenses.</p>
+            </div>
+        </div>
+        <div class="col-md-6 col-lg-4">
+            <div class="feature-card p-4 h-100 rounded-3 border bg-white shadow-sm">
+                <div class="feature-icon mb-2 text-primary">🔄</div>
+                <h3 class="h6 fw-bold mb-2">Recurring precision</h3>
+                <p class="small text-muted mb-0">Recurring items are projected only in due months (e.g. every 4 months). Mark as completed when paid or received.</p>
+            </div>
+        </div>
+        <div class="col-md-6 col-lg-4">
+            <div class="feature-card p-4 h-100 rounded-3 border bg-white shadow-sm">
+                <div class="feature-icon mb-2 text-primary">🔒</div>
+                <h3 class="h6 fw-bold mb-2">Your data only</h3>
+                <p class="small text-muted mb-0">All records are tied to your account. Try the app with the guest account—no sign-up required.</p>
+            </div>
+        </div>
     </div>
 </section>
