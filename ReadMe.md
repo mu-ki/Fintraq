@@ -8,11 +8,25 @@ A secure web-based personal finance manager built with **ASP.NET Core**, **Entit
 
 ## Table of Contents
 
+- [Live site](#live-site)
 - [Tech Stack](#tech-stack)
 - [Features](#features)
 - [Images](#images)
 - [Getting Started](#getting-started)
 - [Project Structure](#project-structure)
+
+---
+
+## Live site
+
+**http://fintraq.runasp.net/**
+
+Demo account (try the app without registering):
+
+| Field    | Value                        |
+| -------- | ---------------------------- |
+| **Email**    | demo@expensemanager.local    |
+| **Password** | Demo@12345                   |
 
 ---
 

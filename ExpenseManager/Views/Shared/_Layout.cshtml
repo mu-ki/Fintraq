@@ -3,7 +3,9 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>@ViewData["Title"] - ExpenseManager</title>
+    <title>@(ViewData["Title"] is string pageTitle && !string.IsNullOrWhiteSpace(pageTitle) ? $"{pageTitle} | Fintraq" : "Fintraq")</title>
+    <link rel="icon" type="image/svg+xml" href="~/favicon.svg" />
+    <link rel="alternate icon" type="image/x-icon" href="~/favicon.ico" />
     <script type="importmap"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -17,7 +19,7 @@
         <header class="app-header">
             <nav class="navbar navbar-expand-lg app-nav">
                 <div class="container">
-                    <a class="navbar-brand app-brand" asp-area="" asp-controller="Home" asp-action="Index">ExpenseManager</a>
+                    <a class="navbar-brand app-brand" asp-area="" asp-controller="Home" asp-action="Index">Fintraq</a>
                     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target=".navbar-collapse" aria-controls="navbarSupportedContent"
                             aria-expanded="false" aria-label="Toggle navigation">
                         <span class="navbar-toggler-icon"></span>
@@ -52,7 +54,7 @@
         <footer class="app-footer">
             <div class="container">
                 <div class="app-footer-inner">
-                    <span>&copy; 2026 ExpenseManager</span>
+                    <span>&copy; 2026 Fintraq</span>
                     <span class="app-footer-sep">|</span>
                     <span>Author: Mugunth</span>
                     <span class="app-footer-sep">|</span>
