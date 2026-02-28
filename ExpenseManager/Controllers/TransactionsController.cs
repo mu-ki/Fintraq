@@ -35,7 +35,7 @@ public class TransactionsController(
         {
             if (t.ScheduleType == ScheduleType.OneTime)
             {
-                return t.Date.HasValue && t.Date.Value < today;
+                return t.IsCompleted;
             }
 
             return !t.IsActive || (t.EndDate.HasValue && t.EndDate.Value < today);
@@ -131,7 +131,7 @@ public class TransactionsController(
             PaidFromAccountId = vm.PaidFromAccountId,
             ReceivedToAccountId = vm.ReceivedToAccountId,
             RecurrenceGroupId = vm.ScheduleType == ScheduleType.Recurring ? Guid.NewGuid() : null,
-            IsCompleted = vm.ScheduleType == ScheduleType.OneTime
+            IsCompleted = false
         };
 
         dbContext.Transactions.Add(entity);
@@ -600,6 +600,76 @@ public class TransactionsController(
 
     [HttpPost]
     [ValidateAntiForgeryToken]
+    public async Task<IActionResult> MarkOneTimeCompleted(Guid id, int year, int month)
+    {
+        var userId = userManager.GetUserId(User);
+        if (string.IsNullOrWhiteSpace(userId))
+        {
+            return Challenge();
+        }
+
+        var transaction = await dbContext.Transactions
+            .SingleOrDefaultAsync(t =>
+                t.Id == id &&
+                t.UserId == userId &&
+                t.EntryRole == TransactionEntryRole.Standard &&
+                t.ScheduleType == ScheduleType.OneTime);
+
+        if (transaction is null)
+        {
+            return NotFound();
+        }
+
+        if (!transaction.Date.HasValue || transaction.Date.Value.Year != year || transaction.Date.Value.Month != month)
+        {
+            TempData["Error"] = "This one-time item is not part of the selected month.";
+            return RedirectToAction("Index", "Dashboard", new { year, month });
+        }
+
+        transaction.IsCompleted = true;
+        transaction.CompletedAt = DateTime.Now;
+        await dbContext.SaveChangesAsync();
+
+        return RedirectToAction("Index", "Dashboard", new { year, month });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> RevertOneTimeCompleted(Guid id, int year, int month)
+    {
+        var userId = userManager.GetUserId(User);
+        if (string.IsNullOrWhiteSpace(userId))
+        {
+            return Challenge();
+        }
+
+        var transaction = await dbContext.Transactions
+            .SingleOrDefaultAsync(t =>
+                t.Id == id &&
+                t.UserId == userId &&
+                t.EntryRole == TransactionEntryRole.Standard &&
+                t.ScheduleType == ScheduleType.OneTime);
+
+        if (transaction is null)
+        {
+            return NotFound();
+        }
+
+        if (!transaction.Date.HasValue || transaction.Date.Value.Year != year || transaction.Date.Value.Month != month)
+        {
+            TempData["Error"] = "This one-time item is not part of the selected month.";
+            return RedirectToAction("Index", "Dashboard", new { year, month });
+        }
+
+        transaction.IsCompleted = false;
+        transaction.CompletedAt = null;
+        await dbContext.SaveChangesAsync();
+
+        return RedirectToAction("Index", "Dashboard", new { year, month });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
     public async Task<IActionResult> Delete(Guid id)
     {
         var userId = userManager.GetUserId(User);
@@ -618,8 +688,58 @@ public class TransactionsController(
             return NotFound();
         }
 
-        transaction.IsDeleted = true;
-        transaction.UpdatedAt = DateTime.Now;
+        var now = DateTime.Now;
+
+        if (transaction.ScheduleType == ScheduleType.Recurring)
+        {
+            IQueryable<TransactionEntry> recurringSeriesQuery = dbContext.Transactions.Where(t =>
+                t.UserId == userId &&
+                t.EntryRole == TransactionEntryRole.Standard &&
+                t.ScheduleType == ScheduleType.Recurring);
+
+            if (transaction.RecurrenceGroupId.HasValue)
+            {
+                var recurrenceGroupId = transaction.RecurrenceGroupId.Value;
+                recurringSeriesQuery = recurringSeriesQuery.Where(t => t.RecurrenceGroupId == recurrenceGroupId);
+            }
+            else
+            {
+                recurringSeriesQuery = recurringSeriesQuery.Where(t => t.Id == transaction.Id);
+            }
+
+            var recurringSeries = await recurringSeriesQuery.ToListAsync();
+            var recurringIds = recurringSeries.Select(t => t.Id).ToList();
+
+            foreach (var recurring in recurringSeries)
+            {
+                recurring.IsDeleted = true;
+                recurring.IsActive = false;
+                recurring.UpdatedAt = now;
+            }
+
+            if (recurringIds.Count > 0)
+            {
+                var completionEntries = await dbContext.Transactions
+                    .Where(t =>
+                        t.UserId == userId &&
+                        t.EntryRole == TransactionEntryRole.RecurringCompletion &&
+                        t.ParentTransactionId.HasValue &&
+                        recurringIds.Contains(t.ParentTransactionId.Value))
+                    .ToListAsync();
+
+                foreach (var completion in completionEntries)
+                {
+                    completion.IsDeleted = true;
+                    completion.UpdatedAt = now;
+                }
+            }
+        }
+        else
+        {
+            transaction.IsDeleted = true;
+            transaction.UpdatedAt = now;
+        }
+
         await dbContext.SaveChangesAsync();
 
         return RedirectToAction(nameof(Index));

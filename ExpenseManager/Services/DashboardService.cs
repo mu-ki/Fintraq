@@ -128,26 +128,18 @@ public class DashboardService(ApplicationDbContext dbContext) : IDashboardServic
             });
         }
 
-        var today = DateOnly.FromDateTime(DateTime.Now);
         var selectedMonthStart = new DateOnly(year, month, 1);
 
         var oneTimeDueItems = oneTimes
             .Select(t =>
             {
-                var dueDate = t.Date ?? selectedMonthStart;
-                var isCompleted = selectedMonthStart < new DateOnly(today.Year, today.Month, 1)
-                    ? true
-                    : selectedMonthStart > new DateOnly(today.Year, today.Month, 1)
-                        ? false
-                        : dueDate < today;
-
                 return new RecurringDueItemViewModel
                 {
                     TransactionId = t.Id,
                     Title = t.Title,
                     Amount = t.Amount,
                     Kind = t.Kind,
-                    IsCompleted = isCompleted,
+                    IsCompleted = t.IsCompleted,
                     IsRecurring = false,
                     DueDate = t.Date
                 };

@@ -402,6 +402,30 @@ h1, h2, h3, h4, h5 {
   color: #fff;
 }
 
+.auth-nav {
+  gap: 0.45rem;
+}
+
+.auth-icon-btn {
+  width: 2.35rem;
+  height: 2.35rem;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.auth-icon-light {
+  background: #fff;
+  border-color: #fff;
+}
+
+.auth-icon-light:hover {
+  background: #f0f4f2;
+  border-color: #f0f4f2;
+}
+
 .btn-primary {
   background: var(--brand);
   border-color: var(--brand);
@@ -501,5 +525,18 @@ h1, h2, h3, h4, h5 {
   .auth-links {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .auth-nav {
+    margin-top: 0.5rem;
+    flex-direction: row;
+    align-items: center;
+  }
+
+  .user-chip {
+    max-width: min(100%, 16rem);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 }

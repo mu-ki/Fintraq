@@ -211,6 +211,26 @@
                                                     <button type="submit" class="btn btn-sm btn-outline-danger">Revert</button>
                                                 </form>
                                             }
+                                            else if (!item.IsCompleted)
+                                            {
+                                                <form asp-controller="Transactions" asp-action="MarkOneTimeCompleted" method="post" onsubmit="return confirm('Mark this one-time item as done?');">
+                                                    @Html.AntiForgeryToken()
+                                                    <input type="hidden" name="id" value="@item.TransactionId" />
+                                                    <input type="hidden" name="year" value="@Model.Year" />
+                                                    <input type="hidden" name="month" value="@Model.Month" />
+                                                    <button type="submit" class="btn btn-sm btn-primary">Mark Done</button>
+                                                </form>
+                                            }
+                                            else
+                                            {
+                                                <form asp-controller="Transactions" asp-action="RevertOneTimeCompleted" method="post" onsubmit="return confirm('Revert one-time completion for this month?');">
+                                                    @Html.AntiForgeryToken()
+                                                    <input type="hidden" name="id" value="@item.TransactionId" />
+                                                    <input type="hidden" name="year" value="@Model.Year" />
+                                                    <input type="hidden" name="month" value="@Model.Month" />
+                                                    <button type="submit" class="btn btn-sm btn-outline-danger">Revert</button>
+                                                </form>
+                                            }
                                         </div>
                                     </td>
                                 </tr>
