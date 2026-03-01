@@ -86,7 +86,8 @@ public sealed class ChatAssistantService(
             }
             else if (data.Intent == "chit")
             {
-                var chitReply = await geminiService.GenerateChitReplyAsync(userMessage, data.Chits, cancellationToken);
+                var chitsToUse = FilterChitsByUserMessage(userMessage, data.Chits);
+                var chitReply = await geminiService.GenerateChitReplyAsync(userMessage, chitsToUse, cancellationToken);
                 sb.Append(chitReply);
             }
             else
@@ -197,7 +198,8 @@ public sealed class ChatAssistantService(
             }
             else if (data.Intent == "chit")
             {
-                reply = await geminiService.GenerateChitReplyAsync(userMessage, data.Chits, cancellationToken);
+                var chitsToUse = FilterChitsByUserMessage(userMessage, data.Chits);
+                reply = await geminiService.GenerateChitReplyAsync(userMessage, chitsToUse, cancellationToken);
             }
             else
             {
@@ -326,6 +328,39 @@ public sealed class ChatAssistantService(
             Content = content
         });
         await dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    /// <summary>When the user message mentions a specific chit by name, return only that chit so the reply is focused. Otherwise return all chits.</summary>
+    private static IReadOnlyList<ChitDetailItem> FilterChitsByUserMessage(string userMessage, List<ChitDetailItem> chits)
+    {
+        if (chits.Count == 0) return chits;
+        var msg = userMessage.Trim();
+        if (string.IsNullOrWhiteSpace(msg)) return chits;
+
+        // 1) Message contains full chit title (e.g. "Thiya Mama Chit how much")
+        var byFullTitle = chits.Where(c => msg.IndexOf(c.Title, StringComparison.OrdinalIgnoreCase) >= 0).ToList();
+        if (byFullTitle.Count == 1) return byFullTitle;
+        if (byFullTitle.Count > 1) return byFullTitle;
+
+        // 2) Chit title contains the whole message (e.g. message "Thiyagu" matches "Thiyagu Chit"). Min length 4 so "chit" doesn't match all.
+        if (msg.Length >= 4)
+        {
+            var byMessageInTitle = chits.Where(c => c.Title.IndexOf(msg, StringComparison.OrdinalIgnoreCase) >= 0).ToList();
+            if (byMessageInTitle.Count == 1) return byMessageInTitle;
+        }
+
+        // 3) Extract words (length >= 4) and see if any word matches exactly one chit (e.g. "chit detail of thiyagu" -> "thiyagu" matches only "Thiyagu Chit")
+        var words = msg.Split([' ', ',', '.', '?', '!'], StringSplitOptions.RemoveEmptyEntries)
+            .Where(w => w.Length >= 4).ToList();
+        foreach (var word in words)
+        {
+            if (word.Equals("chit", StringComparison.OrdinalIgnoreCase) || word.Equals("detail", StringComparison.OrdinalIgnoreCase))
+                continue; // skip generic words so they don't match every chit
+            var single = chits.Where(c => c.Title.IndexOf(word, StringComparison.OrdinalIgnoreCase) >= 0).ToList();
+            if (single.Count == 1) return single;
+        }
+
+        return chits;
     }
 
     private static string BuildFallbackReply(ChatDataPayload data)

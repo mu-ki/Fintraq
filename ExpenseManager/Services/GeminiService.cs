@@ -352,15 +352,23 @@ Current user message: {userPrompt}
 
         if (!HasApiKey())
         {
-            return BuildChitFallbackReply(chits);
+            return BuildChitFallbackReply(chits, userPrompt);
         }
 
+        var focusInstruction = chits.Count == 1
+            ? "The user asked about one specific chit. Answer only about that chit with the exact numbers below."
+            : "If the user asked about a specific chit by name, answer ONLY for that chit. Do not list other chits.";
+
         var prompt = $"""
-            You are a finance assistant. The user has the following chits (recurring Chit Fund installments). Use this data to answer their question precisely.
+            You are a finance assistant. The user has the following chit(s). Use this data to answer their question precisely.
+            {focusInstruction}
+
             Chit details:
             {chitLines}
+
             User asked: {userPrompt}
-            Answer in plain text. For "how many installments completed" give the number for the chit they asked about (match by name, e.g. Thiyagu Chit, Thiya Mama Chit). For "installment amount" give the amount for that chit. If they don't name a chit and there are multiple, list each or ask which one.
+
+            Answer in plain text. Be concise. For "how many installments" give the completed count (and total if known). For "installment amount" give the amount. Do not list chits the user did not ask about.
             """;
 
         try
@@ -371,23 +379,29 @@ Current user message: {userPrompt}
                 generationConfig = new { temperature = 0.2 }
             };
             var response = await GenerateContentAsync(payload, cancellationToken);
-            return string.IsNullOrWhiteSpace(response) ? BuildChitFallbackReply(chits) : response.Trim();
+            return string.IsNullOrWhiteSpace(response) ? BuildChitFallbackReply(chits, userPrompt) : response.Trim();
         }
         catch (Exception ex)
         {
             logger.LogWarning(ex, "Chit reply generation failed. Using fallback.");
-            return BuildChitFallbackReply(chits);
+            return BuildChitFallbackReply(chits, userPrompt);
         }
     }
 
-    private static string BuildChitFallbackReply(IReadOnlyList<ChitDetailItem> chits)
+    private static string BuildChitFallbackReply(IReadOnlyList<ChitDetailItem> chits, string? userPrompt = null)
     {
+        if (chits.Count == 1)
+        {
+            var c = chits[0];
+            var totalStr = c.TotalInstallments.HasValue ? $"{c.CompletedCount} of {c.TotalInstallments} installments completed" : $"{c.CompletedCount} installments completed (ongoing)";
+            return $"{c.Title}: {totalStr}. Installment amount: {c.InstallmentAmount:0.00}.";
+        }
         var lines = chits.Select(c =>
         {
             var totalStr = c.TotalInstallments.HasValue ? $"{c.CompletedCount} of {c.TotalInstallments}" : $"{c.CompletedCount} completed (ongoing)";
-            return $"{c.Title}: installment {c.InstallmentAmount:0.00}, {totalStr}";
+            return $"{c.Title}: {totalStr} installments, amount {c.InstallmentAmount:0.00} per installment";
         });
-        return "Chit details: " + string.Join("; ", lines);
+        return "Chit details:\n" + string.Join("\n", lines);
     }
 
     public async Task<string> GenerateOpenEndedReplyAsync(string userPrompt, string userFinancialContext, IReadOnlyList<ChatTurn>? conversationHistory, CancellationToken cancellationToken = default)
