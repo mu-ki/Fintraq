@@ -1,0 +1,44 @@
+@model AdminLogsViewModel
+@{
+    ViewData["Title"] = "Logs";
+}
+<h1 class="mb-4">Application logs</h1>
+
+<div class="card mb-4">
+    <div class="card-header">Log level</div>
+    <div class="card-body">
+        <p class="mb-2">Current default level: <strong>@Model.CurrentLogLevel</strong>. Changing the level is saved and will apply after an application restart.</p>
+        <form asp-action="SetLevel" method="post" class="d-inline">
+            @Html.AntiForgeryToken()
+            <select name="level" class="form-select form-select-sm d-inline-block w-auto">
+                @foreach (var lvl in Model.LogLevels)
+                {
+                    <option value="@lvl" selected="@(lvl == Model.CurrentLogLevel)">@lvl</option>
+                }
+            </select>
+            <button type="submit" class="btn btn-sm btn-primary ms-2">Set level</button>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span>Recent log entries (last @Model.Tail)</span>
+        <a asp-action="Index" asp-route-tail="500" class="btn btn-sm btn-outline-secondary">500</a>
+    </div>
+    <div class="card-body p-0">
+        @if (Model.LogEntries.Count == 0)
+        {
+            <p class="p-3 mb-0 text-muted">No log entries in buffer yet. Logging is captured in memory as the app runs.</p>
+        }
+        else
+        {
+            <pre class="mb-0 p-3 small" style="max-height: 60vh; overflow: auto;">@foreach (var e in Model.LogEntries)
+{
+@e.Timestamp @e.Level @e.Category
+  @e.Message
+  @(e.Exception != null ? e.Exception + "\n" : "")
+}</pre>
+        }
+    </div>
+</div>

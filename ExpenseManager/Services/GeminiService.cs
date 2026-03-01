@@ -3,17 +3,16 @@ using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
-using ExpenseManager.Configuration;
 using ExpenseManager.Models.Chat;
 using Google.GenAI;
 using Google.GenAI.Types;
-using Microsoft.Extensions.Options;
 
 namespace ExpenseManager.Services;
 
 public sealed class GeminiService(
-    IOptions<GeminiOptions> options,
+    IGeminiOptionsProvider optionsProvider,
     IFinanceToolExecutor toolExecutor,
+    IAiTokenUsageService tokenUsage,
     ILogger<GeminiService> logger) : IGeminiService
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
@@ -21,21 +20,22 @@ public sealed class GeminiService(
         PropertyNameCaseInsensitive = true
     };
 
-    private readonly GeminiOptions _options = options.Value;
-    private Client? _client;
-
-    private Client GetClient()
+    private async Task<Client> GetClientAsync(CancellationToken cancellationToken)
     {
-        if (_client is null)
-        {
-            if (string.IsNullOrWhiteSpace(_options.ApiKey))
-                throw new InvalidOperationException("Gemini API key is not configured.");
-            _client = new Client(apiKey: _options.ApiKey.Trim());
-        }
-        return _client;
+        var apiKey = await optionsProvider.GetApiKeyAsync(cancellationToken);
+        if (string.IsNullOrWhiteSpace(apiKey))
+            throw new InvalidOperationException("Gemini API key is not configured.");
+        return new Client(apiKey: apiKey.Trim());
     }
 
-    private string ModelName => string.IsNullOrWhiteSpace(_options.Model) ? "gemini-2.0-flash" : _options.Model.Trim();
+    private async Task<string> GetModelNameAsync(CancellationToken cancellationToken)
+    {
+        var model = await optionsProvider.GetModelAsync(cancellationToken);
+        return string.IsNullOrWhiteSpace(model) ? "gemini-2.0-flash" : model.Trim();
+    }
+
+    private async Task<bool> HasApiKeyAsync(CancellationToken cancellationToken)
+        => !string.IsNullOrWhiteSpace(await optionsProvider.GetApiKeyAsync(cancellationToken));
 
     private static string? GetTextFromResponse(GenerateContentResponse? response)
     {
@@ -48,9 +48,10 @@ public sealed class GeminiService(
 
     private async Task<string> GenerateContentAsync(string prompt, GenerateContentConfig? config, CancellationToken cancellationToken)
     {
-        var client = GetClient();
+        var client = await GetClientAsync(cancellationToken);
+        var modelName = await GetModelNameAsync(cancellationToken);
         var response = await client.Models.GenerateContentAsync(
-            model: ModelName,
+            model: modelName,
             contents: prompt,
             config: config,
             cancellationToken: cancellationToken);
@@ -64,7 +65,7 @@ public sealed class GeminiService(
 
     public async Task<IntentExtractionResult> ExtractIntentAsync(string userPrompt, DateTime currentDate, IReadOnlyList<ChatTurn>? conversationContext, CancellationToken cancellationToken)
     {
-        if (!HasApiKey())
+        if (!await HasApiKeyAsync(cancellationToken))
         {
             return BuildHeuristicIntent(userPrompt, currentDate);
         }
@@ -158,7 +159,7 @@ Current user message: {userPrompt}
                 + string.Join("\n", categoriesList.Select(c => $"- {c.CategoryName}: {c.Amount:0.00}"));
         }
 
-        if (!HasApiKey())
+        if (!await HasApiKeyAsync(cancellationToken))
             return BuildDeterministicReply(intent, monthLabel, totalAmount, accounts, categoriesList);
 
         var prompt = $"""
@@ -213,7 +214,7 @@ Current user message: {userPrompt}
                 + string.Join("\n", categoriesList.Select(c => $"- {c.CategoryName}: {c.Amount:0.00}"));
         }
 
-        if (!HasApiKey())
+        if (!await HasApiKeyAsync(cancellationToken))
         {
             var fallback = BuildDeterministicReply(intent, monthLabel, totalAmount, accounts, categoriesList);
             foreach (var chunk in ChunkByWords(fallback, 4))
@@ -235,11 +236,12 @@ Current user message: {userPrompt}
             Respond with plain text only.
             """;
 
-        var client = GetClient();
+        var client = await GetClientAsync(cancellationToken);
+        var modelName = await GetModelNameAsync(cancellationToken);
         var config = new GenerateContentConfig { Temperature = 0.2f };
         var buffer = new StringBuilder();
         await foreach (var chunk in client.Models.GenerateContentStreamAsync(
-            model: ModelName,
+            model: modelName,
             contents: prompt,
             config: config,
             cancellationToken: cancellationToken))
@@ -269,7 +271,7 @@ Current user message: {userPrompt}
             chitLines.AppendLine($"- {c.Title}: Installment amount {c.InstallmentAmount:0.00}; Completed: {c.CompletedCount} ({totalStr}); Start: {c.StartDate ?? "—"}; End: {c.EndDate ?? "—"}; Frequency: {c.FrequencyLabel ?? "—"}");
         }
 
-        if (!HasApiKey())
+        if (!await HasApiKeyAsync(cancellationToken))
             return BuildChitFallbackReply(chits, userPrompt);
 
         var focusInstruction = chits.Count == 1
@@ -340,7 +342,7 @@ Current user message: {userPrompt}
             Reply in plain text only.
             """;
 
-        if (!HasApiKey())
+        if (!await HasApiKeyAsync(cancellationToken))
             return "I can answer questions about your balance, income, expenses, chits, and recent transactions. Enable the Gemini API key in settings for full natural language answers.";
 
         try
@@ -358,7 +360,7 @@ Current user message: {userPrompt}
 
     public async Task<string> GenerateReplyWithToolsAsync(string userId, string userMessage, IReadOnlyList<ChatTurn>? conversationHistory, CancellationToken cancellationToken = default)
     {
-        if (!HasApiKey())
+        if (!await HasApiKeyAsync(cancellationToken))
             return "Gemini API key is not configured. Configure it in settings to use the assistant with tools.";
         var contents = BuildInitialContents(userMessage, conversationHistory);
         var toolsList = FinanceToolsDefinition.GetTools().ToList();
@@ -384,7 +386,8 @@ Current user message: {userPrompt}
             }
         };
         const int maxRounds = 5;
-        var client = GetClient();
+        var client = await GetClientAsync(cancellationToken);
+        var modelName = await GetModelNameAsync(cancellationToken);
         for (var round = 0; round < maxRounds; round++)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -392,7 +395,7 @@ Current user message: {userPrompt}
             try
             {
                 response = await client.Models.GenerateContentAsync(
-                    model: ModelName,
+                    model: modelName,
                     contents: contents,
                     config: config,
                     cancellationToken: cancellationToken);
@@ -402,6 +405,14 @@ Current user message: {userPrompt}
                 logger.LogWarning(ex, "GenerateContentAsync (tools) failed.");
                 return "I'm having trouble connecting to the AI. Try again or use the menu options for balance, income, or expenses.";
             }
+            var promptTokens = 0;
+            var completionTokens = 0;
+            if (response?.UsageMetadata != null)
+            {
+                promptTokens = (int)(response.UsageMetadata.PromptTokenCount ?? 0);
+                completionTokens = (int)(response.UsageMetadata.CandidatesTokenCount ?? response.UsageMetadata.TotalTokenCount ?? 0);
+            }
+            try { await tokenUsage.RecordAsync(userId, modelName, promptTokens, completionTokens, cancellationToken); } catch { /* best effort */ }
             if (response?.Candidates is not { Count: > 0 })
                 return "I didn't get a valid response. Please try again.";
             var candidate = response.Candidates[0];
@@ -556,7 +567,6 @@ Current user message: {userPrompt}
         };
     }
 
-    private bool HasApiKey() => !string.IsNullOrWhiteSpace(_options.ApiKey);
 
     private static string BuildDeterministicReply(
         string intent,

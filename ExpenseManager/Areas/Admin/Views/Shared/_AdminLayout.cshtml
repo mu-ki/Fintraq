@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@(ViewData["Title"] != null ? $"{ViewData["Title"]} | Admin | Fintraq" : "Admin | Fintraq")</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <style>
+        .admin-sidebar { min-width: 200px; background: #f8f9fa; border-right: 1px solid #dee2e6; }
+        .admin-sidebar .nav-link { color: #495057; }
+        .admin-sidebar .nav-link.active { font-weight: 600; color: #0d6efd; }
+        .admin-content { padding: 1.5rem; }
+    </style>
+</head>
+<body>
+    <div class="d-flex">
+        <nav class="admin-sidebar p-3 vh-100">
+            <h6 class="text-uppercase text-muted mb-3">Admin</h6>
+            <ul class="nav flex-column">
+                <li class="nav-item">
+                    <a class="nav-link @(ViewContext.RouteData.Values["controller"]?.ToString() == "Admin" && ViewContext.RouteData.Values["action"]?.ToString() == "Index" ? "active" : "")" asp-area="Admin" asp-controller="Admin" asp-action="Index">Dashboard</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link @(ViewContext.RouteData.Values["controller"]?.ToString() == "AdminUsers" ? "active" : "")" asp-area="Admin" asp-controller="AdminUsers" asp-action="Index">User management</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link @(ViewContext.RouteData.Values["controller"]?.ToString() == "AdminAi" ? "active" : "")" asp-area="Admin" asp-controller="AdminAi" asp-action="Index">AI settings</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link @(ViewContext.RouteData.Values["controller"]?.ToString() == "AdminLogs" ? "active" : "")" asp-area="Admin" asp-controller="AdminLogs" asp-action="Index">Logs</a>
+                </li>
+            </ul>
+            <hr />
+            <a class="nav-link" asp-area="" asp-controller="Home" asp-action="Index">&larr; Back to app</a>
+        </nav>
+        <main class="admin-content flex-grow-1">
+            @if (TempData["UserMessage"] != null)
+            {
+                <div class="alert alert-@(TempData["UserMessageType"] ?? "info") alert-dismissible fade show" role="alert">
+                    @TempData["UserMessage"]
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            }
+            @RenderBody()
+        </main>
+    </div>
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

@@ -11,6 +11,8 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<BankAccount> BankAccounts => Set<BankAccount>();
     public DbSet<TransactionEntry> Transactions => Set<TransactionEntry>();
     public DbSet<ChatMessage> ChatMessages => Set<ChatMessage>();
+    public DbSet<AdminSetting> AdminSettings => Set<AdminSetting>();
+    public DbSet<AiTokenUsage> AiTokenUsages => Set<AiTokenUsage>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -55,6 +57,13 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             .WithMany(t => t.Completions)
             .HasForeignKey(t => t.ParentTransactionId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<AdminSetting>()
+            .HasIndex(s => s.Key)
+            .IsUnique();
+
+        builder.Entity<AiTokenUsage>()
+            .HasIndex(u => new { u.UserId, u.CalledAt });
     }
 
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)

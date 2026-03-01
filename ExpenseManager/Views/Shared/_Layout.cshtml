@@ -41,6 +41,12 @@
                             <li class="nav-item">
                                 <a class="nav-link" asp-area="" asp-controller="Data" asp-action="Index">Export / Import</a>
                             </li>
+                            @if (User.IsInRole("Admin"))
+                            {
+                                <li class="nav-item">
+                                    <a class="nav-link" asp-area="Admin" asp-controller="Admin" asp-action="Index">Admin</a>
+                                </li>
+                            }
                         </ul>
                         <partial name="_LoginPartial" />
                     </div>

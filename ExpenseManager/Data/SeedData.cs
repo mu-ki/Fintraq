@@ -1,6 +1,7 @@
 using ExpenseManager.Models;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using System.Security.Claims;
 
 namespace ExpenseManager.Data;
@@ -67,6 +68,31 @@ public static class SeedData
         }
 
         await userManager.AddClaimAsync(user, new Claim("display_name", "Demo User"));
+    }
+
+    public const string AdminRoleName = "Admin";
+
+    public static async Task SeedAdminRoleAsync(
+        UserManager<IdentityUser> userManager,
+        RoleManager<IdentityRole> roleManager,
+        IConfiguration config)
+    {
+        var adminEmail = config["Admin:AdminEmail"]?.Trim();
+        if (string.IsNullOrEmpty(adminEmail))
+            return;
+
+        if (await roleManager.RoleExistsAsync(AdminRoleName))
+        {
+            var user = await userManager.FindByEmailAsync(adminEmail);
+            if (user != null && !await userManager.IsInRoleAsync(user, AdminRoleName))
+                await userManager.AddToRoleAsync(user, AdminRoleName);
+            return;
+        }
+
+        await roleManager.CreateAsync(new IdentityRole(AdminRoleName));
+        var adminUser = await userManager.FindByEmailAsync(adminEmail);
+        if (adminUser != null)
+            await userManager.AddToRoleAsync(adminUser, AdminRoleName);
     }
 
     /// <summary>

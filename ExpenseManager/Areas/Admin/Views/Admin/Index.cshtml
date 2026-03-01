@@ -1,0 +1,34 @@
+@{
+    ViewData["Title"] = "Dashboard";
+}
+<h1 class="mb-4">Admin panel</h1>
+<p class="text-muted">Manage users, AI settings, and view logs.</p>
+<div class="row g-3">
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">User management</h5>
+                <p class="card-text">List users, update passwords, activate or deactivate accounts.</p>
+                <a asp-area="Admin" asp-controller="AdminUsers" asp-action="Index" class="btn btn-primary">Open</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">AI settings</h5>
+                <p class="card-text">Update API key, choose model, view token usage history.</p>
+                <a asp-area="Admin" asp-controller="AdminAi" asp-action="Index" class="btn btn-primary">Open</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Logs</h5>
+                <p class="card-text">View application logs and set log level.</p>
+                <a asp-area="Admin" asp-controller="AdminLogs" asp-action="Index" class="btn btn-primary">Open</a>
+            </div>
+        </div>
+    </div>
+</div>

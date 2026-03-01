@@ -1,0 +1,32 @@
+@model IReadOnlyList<AdminUserViewModel>
+@{
+    ViewData["Title"] = "User management";
+}
+<h1 class="mb-4">User management</h1>
+<div class="table-responsive">
+    <table class="table table-hover">
+        <thead>
+            <tr>
+                <th>Email</th>
+                <th>User name</th>
+                <th>Email confirmed</th>
+                <th>Active</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var u in Model)
+            {
+                <tr>
+                    <td>@u.Email</td>
+                    <td>@u.UserName</td>
+                    <td>@(u.EmailConfirmed ? "Yes" : "No")</td>
+                    <td>@(u.IsActive ? "Yes" : "No")</td>
+                    <td>
+                        <a asp-action="Edit" asp-route-id="@u.Id" class="btn btn-sm btn-outline-primary">Edit</a>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>

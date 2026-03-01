@@ -1,0 +1,36 @@
+@model AdminTokenHistoryViewModel
+@{
+    ViewData["Title"] = "Token history";
+}
+<h1 class="mb-4">Token history</h1>
+<p>Total calls: <strong>@Model.TotalCalls</strong> &middot; Prompt: <strong>@Model.TotalPromptTokens</strong> &middot; Completion: <strong>@Model.TotalCompletionTokens</strong></p>
+<div class="table-responsive">
+    <table class="table table-sm">
+        <thead>
+            <tr>
+                <th>Time (UTC)</th>
+                <th>User ID</th>
+                <th>Model</th>
+                <th>Prompt</th>
+                <th>Completion</th>
+                <th>Total</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var h in Model.Items)
+            {
+                <tr>
+                    <td>@h.CalledAt.ToString("yyyy-MM-dd HH:mm:ss")</td>
+                    <td><code>@h.UserId</code></td>
+                    <td>@h.Model</td>
+                    <td>@h.PromptTokens</td>
+                    <td>@h.CompletionTokens</td>
+                    <td>@h.TotalTokens</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+<div class="mt-2">
+    <a asp-action="Index">Back to AI settings</a>
+</div>
