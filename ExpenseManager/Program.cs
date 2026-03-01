@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using ExpenseManager.Data;
 using ExpenseManager.Services;
+using ExpenseManager.Configuration;
 using System.IO;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -19,6 +20,11 @@ builder.Services.AddDefaultIdentity<IdentityUser>(options => options.SignIn.Requ
     .AddEntityFrameworkStores<ApplicationDbContext>();
 builder.Services.AddControllersWithViews();
 builder.Services.AddScoped<IDashboardService, DashboardService>();
+builder.Services.Configure<GeminiOptions>(builder.Configuration.GetSection("Gemini"));
+builder.Services.AddHttpClient<IGeminiService, GeminiService>();
+builder.Services.AddScoped<IFinancialInsightsService, FinancialInsightsService>();
+builder.Services.AddScoped<IChatAssistantService, ChatAssistantService>();
+builder.Services.AddScoped<IExportImportService, ExportImportService>();
 
 var app = builder.Build();
 
@@ -58,6 +64,8 @@ using (var scope = app.Services.CreateScope())
     await SeedData.SeedCategoriesAsync(dbContext);
     await SeedData.SeedDemoUserAsync(userManager);
     await SeedData.SeedDemoFinancialDataAsync(dbContext, userManager);
+    // Reset password for mugunthkumar99@gmail.com (temp password: Reset@12345 — change after login)
+    //await SeedData.ResetOrCreateAccountAsync(userManager, "mugunthkumar99@gmail.com", "Reset@12345");
 }
 
 app.Run();

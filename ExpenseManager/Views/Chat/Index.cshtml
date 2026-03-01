@@ -1,0 +1,72 @@
+@{
+    ViewData["Title"] = "AI Chat";
+}
+
+<section class="page-header">
+    <div>
+        <p class="eyebrow">Fintraq AI</p>
+        <h1 class="mb-1">Ask About Your Finances</h1>
+        <p class="subtitle">Get month-wise balance, income, and expense details from your own account data.</p>
+    </div>
+</section>
+
+<section class="panel chat-panel">
+    <div id="chatLog" class="chat-log" aria-live="polite"></div>
+    <form id="chatForm" class="chat-form">
+        <label class="form-label" for="chatMessage">Message</label>
+        <div class="chat-compose">
+            <input id="chatMessage" class="form-control" maxlength="4000" placeholder="Example: What is my bank balance in March 2026?" required />
+            <button type="submit" class="btn btn-primary">Send</button>
+        </div>
+    </form>
+</section>
+
+@section Scripts {
+    <script>
+        (() => {
+            const form = document.getElementById('chatForm');
+            const input = document.getElementById('chatMessage');
+            const log = document.getElementById('chatLog');
+
+            const append = (text, role) => {
+                const bubble = document.createElement('div');
+                bubble.className = `chat-bubble ${role}`;
+                bubble.textContent = text;
+                log.appendChild(bubble);
+                log.scrollTop = log.scrollHeight;
+            };
+
+            append("Ask me balance, income, or expense by month. If month/year is unclear, I'll ask.", "assistant");
+
+            form.addEventListener('submit', async (event) => {
+                event.preventDefault();
+                const message = input.value.trim();
+                if (!message) {
+                    return;
+                }
+
+                append(message, "user");
+                input.value = "";
+                input.focus();
+
+                try {
+                    const response = await fetch('/api/chat/query', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ message })
+                    });
+
+                    if (!response.ok) {
+                        append('Unable to process the request right now.', 'assistant');
+                        return;
+                    }
+
+                    const data = await response.json();
+                    append(data.reply || 'No response generated.', 'assistant');
+                } catch {
+                    append('Network error while contacting the chat service.', 'assistant');
+                }
+            });
+        })();
+    </script>
+}

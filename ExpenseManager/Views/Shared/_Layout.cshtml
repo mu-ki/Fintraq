@@ -38,6 +38,9 @@
                             <li class="nav-item">
                                 <a class="nav-link" asp-area="" asp-controller="Categories" asp-action="Index">Categories</a>
                             </li>
+                            <li class="nav-item">
+                                <a class="nav-link" asp-area="" asp-controller="Data" asp-action="Index">Export / Import</a>
+                            </li>
                         </ul>
                         <partial name="_LoginPartial" />
                     </div>
@@ -65,6 +68,50 @@
             </div>
         </footer>
     </div>
+
+    @if (User?.Identity?.IsAuthenticated == true)
+    {
+        <button id="fintraqChatToggle"
+                type="button"
+                class="fintraq-chat-toggle"
+                aria-controls="fintraqChatWidget"
+                aria-expanded="false"
+                aria-label="Open AI assistant">
+            <span class="fintraq-chat-toggle-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" focusable="false">
+                    <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8A2.5 2.5 0 0 1 17.5 16H9l-4.5 4v-4.25A2.5 2.5 0 0 1 4 13.5v-8Zm4.5 2.25a.75.75 0 0 0 0 1.5h7a.75.75 0 0 0 0-1.5h-7Zm0 3a.75.75 0 0 0 0 1.5h4.5a.75.75 0 0 0 0-1.5H8.5Z"></path>
+                </svg>
+            </span>
+            <span class="fintraq-chat-toggle-text">AI</span>
+        </button>
+
+        <section id="fintraqChatWidget" class="fintraq-chat-widget" aria-hidden="true">
+            <header class="fintraq-chat-header">
+                <div>
+                    <p class="fintraq-chat-eyebrow">Fintraq Assistant</p>
+                    <h2>Finance AI</h2>
+                </div>
+                <button id="fintraqChatClose"
+                        type="button"
+                        class="fintraq-chat-close"
+                        aria-label="Close AI assistant">x</button>
+            </header>
+
+            <div id="fintraqChatLog" class="fintraq-chat-log" aria-live="polite"></div>
+
+            <form id="fintraqChatForm" class="fintraq-chat-form">
+                <label class="visually-hidden" for="fintraqChatInput">Message</label>
+                <div class="fintraq-chat-compose">
+                    <input id="fintraqChatInput"
+                           class="form-control"
+                           maxlength="4000"
+                           placeholder="Ask balance, income, or expense for a month"
+                           required />
+                    <button id="fintraqChatSend" type="submit" class="btn btn-primary">Send</button>
+                </div>
+            </form>
+        </section>
+    }
 
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>

@@ -1,4 +1,5 @@
 using ExpenseManager.Models;
+using ExpenseManager.Models.Chat;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
@@ -9,6 +10,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<Category> Categories => Set<Category>();
     public DbSet<BankAccount> BankAccounts => Set<BankAccount>();
     public DbSet<TransactionEntry> Transactions => Set<TransactionEntry>();
+    public DbSet<ChatMessage> ChatMessages => Set<ChatMessage>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -23,6 +25,12 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
 
         builder.Entity<TransactionEntry>()
             .HasQueryFilter(t => !t.IsDeleted);
+
+        builder.Entity<ChatMessage>()
+            .HasQueryFilter(t => !t.IsDeleted);
+
+        builder.Entity<ChatMessage>()
+            .HasIndex(m => new { m.UserId, m.CreatedAt });
 
         builder.Entity<TransactionEntry>()
             .HasOne(t => t.Category)

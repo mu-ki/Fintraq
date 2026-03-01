@@ -69,6 +69,42 @@ public static class SeedData
         await userManager.AddClaimAsync(user, new Claim("display_name", "Demo User"));
     }
 
+    /// <summary>
+    /// Resets password for a specific account by email. If the user does not exist, creates them.
+    /// Use for admin recovery. New password should be changed after first login.
+    /// </summary>
+    public static async Task ResetOrCreateAccountAsync(
+        UserManager<IdentityUser> userManager,
+        string email,
+        string newPassword)
+    {
+        var user = await userManager.FindByEmailAsync(email);
+        if (user is not null)
+        {
+            var token = await userManager.GeneratePasswordResetTokenAsync(user);
+            var resetResult = await userManager.ResetPasswordAsync(user, token, newPassword);
+            if (!resetResult.Succeeded)
+            {
+                var errors = string.Join("; ", resetResult.Errors.Select(e => e.Description));
+                throw new InvalidOperationException($"Unable to reset password for {email}: {errors}");
+            }
+            return;
+        }
+
+        var newUser = new IdentityUser
+        {
+            UserName = email,
+            Email = email,
+            EmailConfirmed = true
+        };
+        var createResult = await userManager.CreateAsync(newUser, newPassword);
+        if (!createResult.Succeeded)
+        {
+            var errors = string.Join("; ", createResult.Errors.Select(e => e.Description));
+            throw new InvalidOperationException($"Unable to create user {email}: {errors}");
+        }
+    }
+
     public static async Task<bool> IsInitialSetupRunAsync(ApplicationDbContext dbContext)
     {
         var hasDemoUser = await dbContext.Users.AnyAsync(u => u.Email == DemoEmail);

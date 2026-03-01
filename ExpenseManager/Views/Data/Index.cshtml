@@ -1,0 +1,57 @@
+@{
+    ViewData["Title"] = "Export / Import Data";
+}
+
+<section class="page-header">
+    <div>
+        <p class="eyebrow">Backup &amp; Restore</p>
+        <h1>Export / Import Data</h1>
+        <p class="subtitle">Download all your bank accounts and transactions as JSON, or restore from a previous export.</p>
+    </div>
+</section>
+
+@if (TempData["ImportSuccess"] is string success)
+{
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        @success
+        @if (TempData["ImportWarnings"] is string warnings)
+        {
+            <br /><small>@warnings</small>
+        }
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+@if (TempData["ImportError"] is string error)
+{
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        @error
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+
+<div class="row g-4">
+    <div class="col-md-6">
+        <div class="panel h-100">
+            <h2 class="h5 mb-3">Export</h2>
+            <p class="text-body-secondary small mb-3">Download a JSON file containing all your bank accounts and transactions. Use this to back up your data or move it to another device.</p>
+            <form asp-action="Export" method="post">
+                @Html.AntiForgeryToken()
+                <button type="submit" class="btn btn-primary">Download export file</button>
+            </form>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="panel h-100">
+            <h2 class="h5 mb-3">Import</h2>
+            <p class="text-body-secondary small mb-3">Upload a previously exported JSON file. New accounts and transactions will be added to your current data. Categories must match (use the same app or export).</p>
+            <form asp-action="Import" method="post" enctype="multipart/form-data">
+                @Html.AntiForgeryToken()
+                <div class="mb-3">
+                    <label for="file" class="form-label">Export file (.json)</label>
+                    <input type="file" class="form-control" id="file" name="file" accept=".json,application/json" required />
+                </div>
+                <button type="submit" class="btn btn-outline-primary">Import from file</button>
+            </form>
+        </div>
+    </div>
+</div>
