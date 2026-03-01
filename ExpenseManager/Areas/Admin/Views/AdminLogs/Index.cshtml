@@ -16,16 +16,22 @@
     </div>
     <div>
         <p class="mb-2">Current default level: <strong>@Model.CurrentLogLevel</strong>. Changing the level is saved and will apply after an application restart.</p>
-        <form asp-action="SetLevel" method="post" class="d-inline">
-            @Html.AntiForgeryToken()
-            <select name="level" class="form-select form-select-sm d-inline-block w-auto">
-                @foreach (var lvl in Model.LogLevels)
-                {
-                    <option value="@lvl" selected="@(lvl == Model.CurrentLogLevel)">@lvl</option>
-                }
-            </select>
-            <button type="submit" class="btn btn-sm btn-primary ms-2">Set level</button>
-        </form>
+        <div class="d-flex flex-wrap align-items-center gap-2">
+            <form asp-action="SetLevel" method="post" class="d-inline">
+                @Html.AntiForgeryToken()
+                <select name="level" class="form-select form-select-sm d-inline-block w-auto">
+                    @foreach (var lvl in Model.LogLevels)
+                    {
+                        <option value="@lvl" selected="@(lvl == Model.CurrentLogLevel)">@lvl</option>
+                    }
+                </select>
+                <button type="submit" class="btn btn-sm btn-primary ms-2">Set level</button>
+            </form>
+            <form asp-action="RestartApplication" method="post" class="d-inline" onsubmit="return confirm('Stop the application now? It will only start again if a process manager or your run script restarts it.');">
+                @Html.AntiForgeryToken()
+                <button type="submit" class="btn btn-sm btn-outline-warning">Restart application</button>
+            </form>
+        </div>
     </div>
 </div>
 

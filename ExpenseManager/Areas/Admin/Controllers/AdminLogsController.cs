@@ -12,12 +12,14 @@ public class AdminLogsController : Controller
     private readonly IAdminSettingsService _adminSettings;
     private readonly ILogReaderService _logReader;
     private readonly IConfiguration _config;
+    private readonly IHostApplicationLifetime _lifetime;
 
-    public AdminLogsController(IAdminSettingsService adminSettings, ILogReaderService logReader, IConfiguration config)
+    public AdminLogsController(IAdminSettingsService adminSettings, ILogReaderService logReader, IConfiguration config, IHostApplicationLifetime lifetime)
     {
         _adminSettings = adminSettings;
         _logReader = logReader;
         _config = config;
+        _lifetime = lifetime;
     }
 
     [HttpGet]
@@ -57,6 +59,21 @@ public class AdminLogsController : Controller
         TempData["UserMessage"] = "Log buffer cleared.";
         TempData["UserMessageType"] = "success";
         return RedirectToAction(nameof(Index));
+    }
+
+    /// <summary>
+    /// Stops the application gracefully. If run under a process manager (e.g. systemd, Docker, or a script that restarts on exit), it will restart automatically.
+    /// </summary>
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public IActionResult RestartApplication()
+    {
+        Response.OnCompleted(() =>
+        {
+            _lifetime.StopApplication();
+            return Task.CompletedTask;
+        });
+        return View("Restarting");
     }
 }
 
