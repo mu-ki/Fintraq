@@ -99,13 +99,20 @@
 
             <div id="fintraqChatLog" class="fintraq-chat-log" aria-live="polite"></div>
 
+            <div id="fintraqChatSuggestions" class="fintraq-chat-suggestions" aria-label="Suggested questions">
+                <button type="button" class="fintraq-chat-chip" data-prompt="Balance this month">Balance</button>
+                <button type="button" class="fintraq-chat-chip" data-prompt="Income this month">Income</button>
+                <button type="button" class="fintraq-chat-chip" data-prompt="Expenses this month">Expenses</button>
+                <button type="button" class="fintraq-chat-chip" data-prompt="Last month balance">Last month</button>
+            </div>
+
             <form id="fintraqChatForm" class="fintraq-chat-form">
                 <label class="visually-hidden" for="fintraqChatInput">Message</label>
                 <div class="fintraq-chat-compose">
                     <input id="fintraqChatInput"
                            class="form-control"
                            maxlength="4000"
-                           placeholder="Ask balance, income, or expense for a month"
+                           placeholder="e.g. balance, income, expenses last month"
                            required />
                     <button id="fintraqChatSend" type="submit" class="btn btn-primary">Send</button>
                 </div>

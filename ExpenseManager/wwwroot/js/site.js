@@ -42,10 +42,9 @@
 
         if (isOpen) {
             if (!hasGreeted) {
-                renderMessage("Ask me your balance, income, or expense by month. If month/year is unclear, I will ask for clarification.", "assistant");
+                renderMessage("Ask balance, income, or expenses by month. You can type short phrases like \"balance\" or \"income\" — I'll use this month if you don't specify.", "assistant");
                 hasGreeted = true;
             }
-
             setTimeout(() => input.focus(), 120);
         }
     };
@@ -55,6 +54,19 @@
         input.disabled = pending;
         sendBtn.disabled = pending;
     };
+
+    const suggestions = document.getElementById("fintraqChatSuggestions");
+    if (suggestions) {
+        suggestions.querySelectorAll(".fintraq-chat-chip").forEach((btn) => {
+            btn.addEventListener("click", function () {
+                const prompt = this.getAttribute("data-prompt") || this.textContent || "";
+                if (prompt && input && !isPending) {
+                    input.value = prompt;
+                    form.requestSubmit();
+                }
+            });
+        });
+    }
 
     toggle.addEventListener("click", () => setOpen(!isOpen));
     closeBtn.addEventListener("click", () => setOpen(false));

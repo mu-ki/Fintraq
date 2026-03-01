@@ -24,9 +24,8 @@ public sealed class ChatAssistantService(
             };
         }
 
-        await SaveMessageAsync(userId, "user", userMessage, cancellationToken);
-
         var response = await BuildResponseAsync(userId, userMessage, cancellationToken);
+        await SaveMessageAsync(userId, "user", userMessage, cancellationToken);
         await SaveMessageAsync(userId, "assistant", response.Reply, cancellationToken);
         return response;
     }
@@ -49,7 +48,8 @@ public sealed class ChatAssistantService(
 
         await SaveMessageAsync(userId, "user", userMessage, cancellationToken);
 
-        var intent = await geminiService.ExtractIntentAsync(userMessage, DateTime.Now, cancellationToken);
+        var recentHistory = await GetRecentHistoryForContextAsync(userId, maxTurns: 10, cancellationToken);
+        var intent = await geminiService.ExtractIntentAsync(userMessage, DateTime.Now, recentHistory, cancellationToken);
         if (!userMessage.Contains("account", StringComparison.OrdinalIgnoreCase))
         {
             intent.AccountName = null;
@@ -167,7 +167,8 @@ public sealed class ChatAssistantService(
 
     private async Task<ChatQueryResponse> BuildResponseAsync(string userId, string userMessage, CancellationToken cancellationToken)
     {
-        var intent = await geminiService.ExtractIntentAsync(userMessage, DateTime.Now, cancellationToken);
+        var recentHistory = await GetRecentHistoryForContextAsync(userId, maxTurns: 10, cancellationToken);
+        var intent = await geminiService.ExtractIntentAsync(userMessage, DateTime.Now, recentHistory, cancellationToken);
         if (!userMessage.Contains("account", StringComparison.OrdinalIgnoreCase))
         {
             intent.AccountName = null;
@@ -262,6 +263,27 @@ public sealed class ChatAssistantService(
         }
 
         return (null, result.Data);
+    }
+
+    private async Task<IReadOnlyList<ChatTurn>?> GetRecentHistoryForContextAsync(string userId, int maxTurns, CancellationToken cancellationToken)
+    {
+        var messages = await dbContext.ChatMessages
+            .Where(m => m.UserId == userId)
+            .OrderByDescending(m => m.CreatedAt)
+            .Take(maxTurns * 2)
+            .Select(m => new { m.Role, m.Content })
+            .ToListAsync(cancellationToken);
+
+        if (messages.Count == 0)
+        {
+            return null;
+        }
+
+        return messages
+            .AsEnumerable()
+            .Reverse()
+            .Select(m => new ChatTurn { Role = m.Role ?? "user", Content = m.Content ?? string.Empty })
+            .ToList();
     }
 
     private async Task SaveMessageAsync(string userId, string role, string content, CancellationToken cancellationToken)

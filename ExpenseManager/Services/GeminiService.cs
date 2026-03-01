@@ -21,17 +21,33 @@ public sealed class GeminiService(
 
     private readonly GeminiOptions _options = options.Value;
 
-    public async Task<IntentExtractionResult> ExtractIntentAsync(string userPrompt, DateTime currentDate, CancellationToken cancellationToken)
+    public Task<IntentExtractionResult> ExtractIntentAsync(string userPrompt, DateTime currentDate, CancellationToken cancellationToken)
+    {
+        return ExtractIntentAsync(userPrompt, currentDate, null, cancellationToken);
+    }
+
+    public async Task<IntentExtractionResult> ExtractIntentAsync(string userPrompt, DateTime currentDate, IReadOnlyList<ChatTurn>? conversationContext, CancellationToken cancellationToken)
     {
         if (!HasApiKey())
         {
             return BuildHeuristicIntent(userPrompt, currentDate);
         }
 
+        var contextBlock = "";
+        if (conversationContext is { Count: > 0 })
+        {
+            var lines = conversationContext.TakeLast(10).Select(t => $"{t.Role}: {t.Content.Trim()}");
+            contextBlock = $@"
+Recent conversation (use this to resolve ""that month"", ""same"", ""yes"", ""march"", etc.):
+{string.Join("\n", lines)}
+
+";
+        }
+
         var prompt = $@"
-You are an intent parser for a personal finance assistant.
+You are an intent parser for a personal finance assistant. Be helpful and infer intent from minimal or incomplete user input.
 Today is {currentDate:yyyy-MM-dd}.
-Return ONLY valid JSON with this exact shape:
+{contextBlock}Return ONLY valid JSON with this exact shape:
 {{
   ""intent"": ""balance|income|expense|other"",
   ""month"": 1-12 or null,
@@ -42,12 +58,14 @@ Return ONLY valid JSON with this exact shape:
 }}
 
 Rules:
-- Resolve relative dates like ""this month"", ""last month"".
-- If month is present but year is missing, set needsClarification=true and ask like ""Do you mean March 2026?"".
-- If month and year are both missing for finance queries, set needsClarification=true and ask for month+year.
+- Resolve relative dates: ""this month"", ""last month"", ""current month"" -> use today's month/year.
+- For very short or minimal queries (e.g. ""balance"", ""income"", ""expense"", ""march"", ""march balance"") infer intent and, when no date is given, default to current month and year (set month and year from today) so the user gets an answer without being asked. Set needsClarification=false in that case.
+- If the user says ""that month"", ""same"", ""yes"" or refers to a month/year mentioned in the recent conversation, use that month/year.
+- Only set needsClarification=true when the user explicitly asks something ambiguous that cannot be inferred from context (e.g. ""which year?"" when multiple years were discussed).
+- If month is present but year is missing, use current year. If only year is given, set needsClarification=true and ask which month.
 - If query is not about income/expense/balance, set intent to ""other"".
 
-User query: {userPrompt}
+Current user message: {userPrompt}
 ";
 
         try
@@ -371,18 +389,21 @@ User query: {userPrompt}
 
     private static void ApplyClarificationRules(IntentExtractionResult result, DateTime currentDate)
     {
+        // Default to current month/year when both missing so minimal queries like "balance" get an answer
         if (!result.Month.HasValue && !result.Year.HasValue)
         {
-            result.NeedsClarification = true;
-            result.ClarificationQuestion ??= "Which month and year should I use?";
+            result.Month = currentDate.Month;
+            result.Year = currentDate.Year;
+            result.NeedsClarification = false;
+            result.ClarificationQuestion = null;
             return;
         }
 
         if (result.Month.HasValue && !result.Year.HasValue)
         {
-            result.NeedsClarification = true;
-            var monthName = CultureInfo.InvariantCulture.DateTimeFormat.GetMonthName(result.Month.Value);
-            result.ClarificationQuestion ??= $"Do you mean {monthName} {currentDate.Year}?";
+            result.Year = currentDate.Year;
+            result.NeedsClarification = false;
+            result.ClarificationQuestion = null;
             return;
         }
 

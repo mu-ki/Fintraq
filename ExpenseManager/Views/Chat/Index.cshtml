@@ -12,10 +12,21 @@
 
 <section class="panel chat-panel">
     <div id="chatLog" class="chat-log" aria-live="polite"></div>
+    <div id="chatSuggestions" class="chat-suggestions" aria-label="Suggested questions">
+        <span class="chat-suggestions-label">Try:</span>
+        <button type="button" class="chat-chip" data-prompt="Balance this month">Balance this month</button>
+        <button type="button" class="chat-chip" data-prompt="Income this month">Income this month</button>
+        <button type="button" class="chat-chip" data-prompt="Expenses this month">Expenses this month</button>
+        <button type="button" class="chat-chip" data-prompt="Last month balance">Last month balance</button>
+        <button type="button" class="chat-chip" data-prompt="Last month income">Last month income</button>
+        <button type="button" class="chat-chip" data-prompt="Last month expenses">Last month expenses</button>
+        <button type="button" class="chat-chip" data-prompt="What is my balance?">What is my balance?</button>
+        <button type="button" class="chat-chip" data-prompt="How much did I spend?">How much did I spend?</button>
+    </div>
     <form id="chatForm" class="chat-form">
         <label class="form-label" for="chatMessage">Message</label>
         <div class="chat-compose">
-            <input id="chatMessage" class="form-control" maxlength="4000" placeholder="Example: What is my bank balance in March 2026?" required />
+            <input id="chatMessage" class="form-control" maxlength="4000" placeholder="e.g. balance, income March, expenses last month" required />
             <button type="submit" class="btn btn-primary">Send</button>
         </div>
     </form>
@@ -36,7 +47,17 @@
                 log.scrollTop = log.scrollHeight;
             };
 
-            append("Ask me balance, income, or expense by month. If month/year is unclear, I'll ask.", "assistant");
+            append("Ask me balance, income, or expense by month. You can type short phrases like \"balance\" or \"income\" — I'll use this month if you don't specify.", "assistant");
+
+            document.querySelectorAll('#chatSuggestions .chat-chip').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const prompt = btn.getAttribute('data-prompt') || btn.textContent || '';
+                    if (prompt) {
+                        input.value = prompt;
+                        form.requestSubmit();
+                    }
+                });
+            });
 
             form.addEventListener('submit', async (event) => {
                 event.preventDefault();
