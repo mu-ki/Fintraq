@@ -23,6 +23,7 @@ builder.Services.AddScoped<IDashboardService, DashboardService>();
 builder.Services.Configure<GeminiOptions>(builder.Configuration.GetSection("Gemini"));
 builder.Services.AddHttpClient<IGeminiService, GeminiService>();
 builder.Services.AddScoped<IFinancialInsightsService, FinancialInsightsService>();
+builder.Services.AddScoped<IUserContextService, UserContextService>();
 builder.Services.AddScoped<IChatAssistantService, ChatAssistantService>();
 builder.Services.AddScoped<IExportImportService, ExportImportService>();
 

@@ -390,6 +390,51 @@ Current user message: {userPrompt}
         return "Chit details: " + string.Join("; ", lines);
     }
 
+    public async Task<string> GenerateOpenEndedReplyAsync(string userPrompt, string userFinancialContext, IReadOnlyList<ChatTurn>? conversationHistory, CancellationToken cancellationToken = default)
+    {
+        var contextBlock = string.IsNullOrWhiteSpace(userFinancialContext)
+            ? " (No account or transaction data available yet.)"
+            : "\n\n" + userFinancialContext;
+
+        var historyBlock = "";
+        if (conversationHistory is { Count: > 0 })
+        {
+            var lines = conversationHistory.TakeLast(8).Select(t => $"{t.Role}: {t.Content.Trim()}");
+            historyBlock = "\n\nRecent conversation:\n" + string.Join("\n", lines);
+        }
+
+        var prompt = $"""
+            You are a helpful personal finance assistant. You have full knowledge of the current user's financial data below. Answer their question in natural language using only this data. Be concise and accurate. If the data does not contain what they ask, say so politely. Do not make up numbers or accounts.
+            User's financial data:
+            {contextBlock}
+            {historyBlock}
+
+            User now asks: {userPrompt}
+            Reply in plain text only.
+            """;
+
+        if (!HasApiKey())
+        {
+            return "I can answer questions about your balance, income, expenses, chits, and recent transactions. Enable the Gemini API key in settings for full natural language answers.";
+        }
+
+        try
+        {
+            var payload = new
+            {
+                contents = new[] { new { parts = new[] { new { text = prompt } } } },
+                generationConfig = new { temperature = 0.2 }
+            };
+            var response = await GenerateContentAsync(payload, cancellationToken);
+            return string.IsNullOrWhiteSpace(response) ? "I couldn't generate a reply. Try asking about your balance, income, expenses, or chits." : response.Trim();
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Open-ended reply generation failed.");
+            return "I'm having trouble answering that right now. You can ask things like: balance this month, income last month, expenses by category, or chit installment status.";
+        }
+    }
+
     private async Task<string> GenerateContentAsync(object payload, CancellationToken cancellationToken)
     {
         if (!HasApiKey())

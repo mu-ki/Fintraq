@@ -6,6 +6,15 @@ public sealed class ChatQueryResponse
     public bool RequiresClarification { get; set; }
     public string? ClarificationQuestion { get; set; }
     public ChatDataPayload? Data { get; set; }
+    /// <summary>Optional actions the user can take (e.g. "Mark as completed"). Rendered as buttons in the chat.</summary>
+    public List<SuggestedAction> SuggestedActions { get; set; } = new();
+}
+
+public sealed class SuggestedAction
+{
+    public string Type { get; set; } = string.Empty;
+    public string Label { get; set; } = string.Empty;
+    public Dictionary<string, object?> Payload { get; set; } = new();
 }
 
 public sealed class ChatDataPayload

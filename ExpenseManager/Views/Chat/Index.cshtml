@@ -6,7 +6,7 @@
     <div>
         <p class="eyebrow">Fintraq AI</p>
         <h1 class="mb-1">Ask About Your Finances</h1>
-        <p class="subtitle">Get month-wise balance, income, and expense details from your own account data.</p>
+        <p class="subtitle">I have full knowledge of your accounts, transactions, recurring items, and chits. Ask in natural language — balance, income, expenses, chit installments, or anything about your data.</p>
     </div>
 </section>
 
@@ -17,16 +17,18 @@
         <button type="button" class="chat-chip" data-prompt="Balance this month">Balance this month</button>
         <button type="button" class="chat-chip" data-prompt="Income this month">Income this month</button>
         <button type="button" class="chat-chip" data-prompt="Expenses this month">Expenses this month</button>
+        <button type="button" class="chat-chip" data-prompt="How much did I spend on Chit Fund?">Chit Fund expenses</button>
+        <button type="button" class="chat-chip" data-prompt="How many installments completed in Thiyagu Chit?">Chit installments</button>
+        <button type="button" class="chat-chip" data-prompt="What is my installment amount for Thiya Mama Chit?">Chit installment amount</button>
         <button type="button" class="chat-chip" data-prompt="Last month balance">Last month balance</button>
-        <button type="button" class="chat-chip" data-prompt="Last month income">Last month income</button>
-        <button type="button" class="chat-chip" data-prompt="Last month expenses">Last month expenses</button>
-        <button type="button" class="chat-chip" data-prompt="What is my balance?">What is my balance?</button>
-        <button type="button" class="chat-chip" data-prompt="How much did I spend?">How much did I spend?</button>
+        <button type="button" class="chat-chip" data-prompt="Summary of my finances">Summary of my finances</button>
+        <button type="button" class="chat-chip" data-prompt="List my recent transactions">Recent transactions</button>
+        <button type="button" class="chat-chip" data-prompt="What did I spend last month?">Spending last month</button>
     </div>
     <form id="chatForm" class="chat-form">
         <label class="form-label" for="chatMessage">Message</label>
         <div class="chat-compose">
-            <input id="chatMessage" class="form-control" maxlength="4000" placeholder="e.g. balance, income March, expenses last month" required />
+            <input id="chatMessage" class="form-control" maxlength="4000" placeholder="e.g. balance, income March, expenses by category, chit installments, or any question about your data" required />
             <button type="submit" class="btn btn-primary">Send</button>
         </div>
     </form>
@@ -39,13 +41,83 @@
             const input = document.getElementById('chatMessage');
             const log = document.getElementById('chatLog');
 
+            const scrollToBottom = () => { log.scrollTop = log.scrollHeight; };
+
             const append = (text, role) => {
                 const bubble = document.createElement('div');
                 bubble.className = `chat-bubble ${role}`;
                 bubble.textContent = text;
                 log.appendChild(bubble);
-                log.scrollTop = log.scrollHeight;
+                scrollToBottom();
             };
+
+            const appendDataCard = (payload) => {
+                if (!payload || !payload.intent) return;
+                const bubble = document.createElement('div');
+                bubble.className = 'chat-bubble assistant chat-data-card';
+                const title = payload.monthLabel || payload.intent.charAt(0).toUpperCase() + payload.intent.slice(1);
+                let html = `<div class="data-card-title">${escapeHtml(title)}</div>`;
+                if (payload.intent === 'balance' && payload.accounts && payload.accounts.length) {
+                    payload.accounts.forEach(a => {
+                        html += `<div class="data-card-row">${escapeHtml(a.accountName || '—')}: ${formatAmount(a.amount)}</div>`;
+                    });
+                    html += `<div class="data-card-row"><strong>Total: ${formatAmount(payload.totalAmount)}</strong></div>`;
+                } else if ((payload.intent === 'income' || payload.intent === 'expense') && (payload.accounts?.length || payload.categories?.length)) {
+                    if (payload.accounts?.length) {
+                        payload.accounts.forEach(a => {
+                            html += `<div class="data-card-row">${escapeHtml(a.accountName || '—')}: ${formatAmount(a.amount)}</div>`;
+                        });
+                    }
+                    if (payload.categories?.length) {
+                        payload.categories.forEach(c => {
+                            html += `<div class="data-card-row">${escapeHtml(c.categoryName || '—')}: ${formatAmount(c.amount)}</div>`;
+                        });
+                    }
+                    html += `<div class="data-card-row"><strong>Total: ${formatAmount(payload.totalAmount)}</strong></div>`;
+                } else if (payload.intent === 'chit' && payload.chits?.length) {
+                    payload.chits.forEach(c => {
+                        const totalStr = c.totalInstallments != null ? `${c.completedCount} of ${c.totalInstallments}` : `${c.completedCount} (ongoing)`;
+                        html += `<div class="data-card-row">${escapeHtml(c.title)}: ${formatAmount(c.installmentAmount)} per installment, ${totalStr} completed</div>`;
+                    });
+                }
+                bubble.innerHTML = html;
+                log.appendChild(bubble);
+                scrollToBottom();
+            };
+
+            const appendActionButtons = (actions) => {
+                if (!Array.isArray(actions) || actions.length === 0) return;
+                const bubble = document.createElement('div');
+                bubble.className = 'chat-bubble assistant chat-actions';
+                actions.forEach(a => {
+                    const btn = document.createElement('button');
+                    btn.type = 'button';
+                    btn.className = 'chat-action-btn';
+                    btn.textContent = a.label || a.type || 'Action';
+                    btn.onclick = () => handleAction(a);
+                    bubble.appendChild(btn);
+                });
+                log.appendChild(bubble);
+                scrollToBottom();
+            };
+
+            function handleAction(action) {
+                if (action.type === 'MarkChitCompleted' && action.payload) {
+                    const url = `/Transactions/MarkCompleted?transactionId=${action.payload.transactionId || ''}&year=${action.payload.year || ''}&month=${action.payload.month || ''}`;
+                    window.location.href = url;
+                }
+            }
+
+            function escapeHtml(s) {
+                const div = document.createElement('div');
+                div.textContent = s;
+                return div.innerHTML;
+            }
+
+            function formatAmount(n) {
+                const num = Number(n);
+                return isNaN(num) ? '—' : num.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            }
 
             const loadHistory = async () => {
                 try {
@@ -57,7 +129,7 @@
                         return;
                     }
                 } catch (_) { /* ignore */ }
-                append("Ask me balance, income, or expense by month. You can type short phrases like \"balance\" or \"income\" — I'll use this month if you don't specify.", "assistant");
+                append("Ask me anything about your finances in natural language: balance, income, expenses, chit installments, recent transactions, or a summary. I have full access to your data.", "assistant");
             };
             loadHistory();
 
@@ -74,9 +146,7 @@
             form.addEventListener('submit', async (event) => {
                 event.preventDefault();
                 const message = input.value.trim();
-                if (!message) {
-                    return;
-                }
+                if (!message) return;
 
                 append(message, "user");
                 input.value = "";
@@ -96,6 +166,8 @@
 
                     const data = await response.json();
                     append(data.reply || 'No response generated.', 'assistant');
+                    if (data.data) appendDataCard(data.data);
+                    if (data.suggestedActions && data.suggestedActions.length > 0) appendActionButtons(data.suggestedActions);
                 } catch {
                     append('Network error while contacting the chat service.', 'assistant');
                 }

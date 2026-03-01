@@ -10,6 +10,7 @@ public sealed class ChatAssistantService(
     ApplicationDbContext dbContext,
     IGeminiService geminiService,
     IFinancialInsightsService financialInsightsService,
+    IUserContextService userContextService,
     ILogger<ChatAssistantService> logger) : IChatAssistantService
 {
     public async Task<ChatQueryResponse> HandleAsync(string userId, ChatQueryRequest request, CancellationToken cancellationToken)
@@ -77,7 +78,13 @@ public sealed class ChatAssistantService(
         var sb = new StringBuilder();
         try
         {
-            if (data.Intent == "chit")
+            if (data.Intent == "open_ended")
+            {
+                var ctx = await userContextService.GetContextAsync(userId, cancellationToken);
+                var openReply = await geminiService.GenerateOpenEndedReplyAsync(userMessage, ctx.ContextForPrompt, recentHistory, cancellationToken);
+                sb.Append(openReply);
+            }
+            else if (data.Intent == "chit")
             {
                 var chitReply = await geminiService.GenerateChitReplyAsync(userMessage, data.Chits, cancellationToken);
                 sb.Append(chitReply);
@@ -182,7 +189,13 @@ public sealed class ChatAssistantService(
         try
         {
             string reply;
-            if (data.Intent == "chit")
+            if (data.Intent == "open_ended")
+            {
+                var ctx = await userContextService.GetContextAsync(userId, cancellationToken);
+                var historyForOpenEnded = await GetRecentHistoryForContextAsync(userId, maxTurns: 10, cancellationToken);
+                reply = await geminiService.GenerateOpenEndedReplyAsync(userMessage, ctx.ContextForPrompt, historyForOpenEnded, cancellationToken);
+            }
+            else if (data.Intent == "chit")
             {
                 reply = await geminiService.GenerateChitReplyAsync(userMessage, data.Chits, cancellationToken);
             }
@@ -231,14 +244,19 @@ public sealed class ChatAssistantService(
             }, null);
         }
 
-        if (intent.Intent is not ("balance" or "income" or "expense" or "chit"))
+        if (intent.Intent is not ("balance" or "income" or "expense" or "chit" or "other"))
         {
             return (new ChatQueryResponse
             {
-                Reply = "I can help with balance, income, expense, and chit installment details. Ask a question like 'What is my balance in March 2026?' or 'How many installments completed in Thiyagu Chit?'.",
+                Reply = "I can help with balance, income, expense, chit installments, or any question about your finances. Ask in natural language.",
                 RequiresClarification = true,
-                ClarificationQuestion = "Please ask for balance, income, expense, or chit installments."
+                ClarificationQuestion = "What would you like to know?"
             }, null);
+        }
+
+        if (intent.Intent == "other")
+        {
+            return (null, new ChatDataPayload { Intent = "open_ended" });
         }
 
         if (intent.Intent == "chit")

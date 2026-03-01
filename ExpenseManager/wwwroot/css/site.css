@@ -523,6 +523,50 @@ h1, h2, h3, h4, h5 {
   background: var(--surface-alt);
 }
 
+.chat-bubble.chat-data-card {
+  background: linear-gradient(135deg, rgba(47, 111, 99, 0.08), rgba(63, 124, 172, 0.06));
+  border-color: var(--brand-2);
+  font-size: 0.9rem;
+}
+
+.chat-data-card .data-card-title {
+  font-weight: 600;
+  margin-bottom: 0.35rem;
+  color: var(--text);
+}
+
+.chat-data-card .data-card-row {
+  padding: 0.2rem 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.chat-data-card .data-card-row:last-child {
+  border-bottom: none;
+}
+
+.chat-bubble.chat-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.chat-actions .chat-action-btn {
+  padding: 0.4rem 0.75rem;
+  border-radius: 8px;
+  border: 1px solid var(--brand-2);
+  background: var(--surface);
+  color: var(--brand-2);
+  font-size: 0.85rem;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.chat-actions .chat-action-btn:hover {
+  background: var(--brand-2);
+  color: #fff;
+}
+
 .chat-compose {
   display: flex;
   gap: 0.6rem;

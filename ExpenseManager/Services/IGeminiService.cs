@@ -9,6 +9,8 @@ public interface IGeminiService
     Task<string> GenerateFinancialReplyAsync(string userPrompt, string intent, int year, int month, decimal totalAmount, IEnumerable<(string AccountName, decimal Amount)> accounts, IEnumerable<(string CategoryName, decimal Amount)>? categories = null, CancellationToken cancellationToken = default);
     IAsyncEnumerable<string> StreamFinancialReplyAsync(string userPrompt, string intent, int year, int month, decimal totalAmount, IEnumerable<(string AccountName, decimal Amount)> accounts, IEnumerable<(string CategoryName, decimal Amount)>? categories = null, CancellationToken cancellationToken = default);
     Task<string> GenerateChitReplyAsync(string userPrompt, IReadOnlyList<ChitDetailItem> chits, CancellationToken cancellationToken = default);
+    /// <summary>Answer open-ended questions using full user financial context. Use when intent is "other" or for general questions.</summary>
+    Task<string> GenerateOpenEndedReplyAsync(string userPrompt, string userFinancialContext, IReadOnlyList<ChatTurn>? conversationHistory, CancellationToken cancellationToken = default);
 }
 
 public sealed class IntentExtractionResult
