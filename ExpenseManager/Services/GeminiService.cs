@@ -1,17 +1,17 @@
 using System.Globalization;
 using System.Runtime.CompilerServices;
-using System.Net.Http.Json;
-using System.Text.Json;
 using System.Text;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using ExpenseManager.Configuration;
 using ExpenseManager.Models.Chat;
+using Google.GenAI;
+using Google.GenAI.Types;
 using Microsoft.Extensions.Options;
 
 namespace ExpenseManager.Services;
 
 public sealed class GeminiService(
-    HttpClient httpClient,
     IOptions<GeminiOptions> options,
     ILogger<GeminiService> logger) : IGeminiService
 {
@@ -21,6 +21,40 @@ public sealed class GeminiService(
     };
 
     private readonly GeminiOptions _options = options.Value;
+    private Client? _client;
+
+    private Client GetClient()
+    {
+        if (_client is null)
+        {
+            if (string.IsNullOrWhiteSpace(_options.ApiKey))
+                throw new InvalidOperationException("Gemini API key is not configured.");
+            _client = new Client(apiKey: _options.ApiKey.Trim());
+        }
+        return _client;
+    }
+
+    private string ModelName => string.IsNullOrWhiteSpace(_options.Model) ? "gemini-2.0-flash" : _options.Model.Trim();
+
+    private static string? GetTextFromResponse(GenerateContentResponse? response)
+    {
+        if (response?.Candidates is not { Count: > 0 }) return null;
+        var candidate = response.Candidates[0];
+        var content = candidate?.Content;
+        if (content?.Parts is not { Count: > 0 }) return null;
+        return content.Parts[0].Text;
+    }
+
+    private async Task<string> GenerateContentAsync(string prompt, GenerateContentConfig? config, CancellationToken cancellationToken)
+    {
+        var client = GetClient();
+        var response = await client.Models.GenerateContentAsync(
+            model: ModelName,
+            contents: prompt,
+            config: config,
+            cancellationToken: cancellationToken);
+        return GetTextFromResponse(response) ?? string.Empty;
+    }
 
     public Task<IntentExtractionResult> ExtractIntentAsync(string userPrompt, DateTime currentDate, CancellationToken cancellationToken)
     {
@@ -72,26 +106,12 @@ Current user message: {userPrompt}
 
         try
         {
-            var payload = new
+            var config = new GenerateContentConfig
             {
-                contents = new[]
-                {
-                    new
-                    {
-                        parts = new[]
-                        {
-                            new { text = prompt }
-                        }
-                    }
-                },
-                generationConfig = new
-                {
-                    temperature = 0.1,
-                    responseMimeType = "application/json"
-                }
+                Temperature = 0.1f,
+                ResponseMimeType = "application/json"
             };
-
-            var raw = await GenerateContentAsync(payload, cancellationToken);
+            var raw = await GenerateContentAsync(prompt, config, cancellationToken);
             var cleaned = StripCodeFence(raw);
             var parsed = JsonSerializer.Deserialize<IntentExtractionResult>(cleaned, JsonOptions);
             if (parsed is null)
@@ -127,9 +147,7 @@ Current user message: {userPrompt}
         var monthLabel = new DateTime(year, month, 1).ToString("MMMM yyyy", CultureInfo.InvariantCulture);
         var accountLines = string.Join("\n", accounts.Select(a => $"- {a.AccountName}: {a.Amount:0.00}"));
         if (string.IsNullOrWhiteSpace(accountLines))
-        {
             accountLines = "- No account entries";
-        }
 
         var categoryLines = "";
         var categoriesList = categories?.ToList() ?? new List<(string CategoryName, decimal Amount)>();
@@ -140,9 +158,7 @@ Current user message: {userPrompt}
         }
 
         if (!HasApiKey())
-        {
             return BuildDeterministicReply(intent, monthLabel, totalAmount, accounts, categoriesList);
-        }
 
         var prompt = $"""
             You are a finance assistant for a personal app.
@@ -160,25 +176,8 @@ Current user message: {userPrompt}
 
         try
         {
-            var payload = new
-            {
-                contents = new[]
-                {
-                    new
-                    {
-                        parts = new[]
-                        {
-                            new { text = prompt }
-                        }
-                    }
-                },
-                generationConfig = new
-                {
-                    temperature = 0.2
-                }
-            };
-
-            var response = await GenerateContentAsync(payload, cancellationToken);
+            var config = new GenerateContentConfig { Temperature = 0.2f };
+            var response = await GenerateContentAsync(prompt, config, cancellationToken);
             return string.IsNullOrWhiteSpace(response)
                 ? BuildDeterministicReply(intent, monthLabel, totalAmount, accounts, categoriesList)
                 : response.Trim();
@@ -203,9 +202,7 @@ Current user message: {userPrompt}
         var monthLabel = new DateTime(year, month, 1).ToString("MMMM yyyy", CultureInfo.InvariantCulture);
         var accountLines = string.Join("\n", accounts.Select(a => $"- {a.AccountName}: {a.Amount:0.00}"));
         if (string.IsNullOrWhiteSpace(accountLines))
-        {
             accountLines = "- No account entries";
-        }
 
         var categoriesList = categories?.ToList() ?? new List<(string CategoryName, decimal Amount)>();
         var categoryLines = "";
@@ -219,10 +216,7 @@ Current user message: {userPrompt}
         {
             var fallback = BuildDeterministicReply(intent, monthLabel, totalAmount, accounts, categoriesList);
             foreach (var chunk in ChunkByWords(fallback, 4))
-            {
                 yield return chunk;
-            }
-
             yield break;
         }
 
@@ -240,108 +234,32 @@ Current user message: {userPrompt}
             Respond with plain text only.
             """;
 
-        var payload = new
+        var client = GetClient();
+        var config = new GenerateContentConfig { Temperature = 0.2f };
+        var buffer = new StringBuilder();
+        await foreach (var chunk in client.Models.GenerateContentStreamAsync(
+            model: ModelName,
+            contents: prompt,
+            config: config,
+            cancellationToken: cancellationToken))
         {
-            contents = new[]
-            {
-                new
-                {
-                    parts = new[]
-                    {
-                        new { text = prompt }
-                    }
-                }
-            },
-            generationConfig = new
-            {
-                temperature = 0.2
-            }
-        };
-
-        var endpoint = BuildGeminiEndpoint(stream: true);
-        using var request = new HttpRequestMessage(HttpMethod.Post, endpoint)
-        {
-            Content = JsonContent.Create(payload)
-        };
-
-        HttpResponseMessage response;
-        try
-        {
-            response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+            var text = GetTextFromResponse(chunk);
+            if (string.IsNullOrWhiteSpace(text)) continue;
+            buffer.Append(text);
+            yield return text;
         }
-        catch (Exception ex)
+        if (buffer.Length == 0)
         {
-            logger.LogWarning(ex, "Gemini stream request failed. Falling back to non-stream response.");
             var fallback = await GenerateFinancialReplyAsync(userPrompt, intent, year, month, totalAmount, accounts, categories, cancellationToken);
-            foreach (var chunk in ChunkByWords(fallback, 4))
-            {
-                // yield return chunk;
-            }
-
-            yield break;
-        }
-
-        using (response)
-        {
-            if (!response.IsSuccessStatusCode)
-            {
-                var body = await response.Content.ReadAsStringAsync(cancellationToken);
-                logger.LogWarning("Gemini stream response failed with status {Status}: {Body}", (int)response.StatusCode, body);
-                var fallback = await GenerateFinancialReplyAsync(userPrompt, intent, year, month, totalAmount, accounts, categories, cancellationToken);
-                foreach (var chunk in ChunkByWords(fallback, 4))
-                {
-                    yield return chunk;
-                }
-
-                yield break;
-            }
-
-            await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
-            using var reader = new StreamReader(stream);
-            var buffer = new StringBuilder();
-
-            while (!reader.EndOfStream && !cancellationToken.IsCancellationRequested)
-            {
-                var line = await reader.ReadLineAsync(cancellationToken);
-                if (line is null)
-                {
-                    break;
-                }
-
-                if (line.StartsWith("data:", StringComparison.Ordinal))
-                {
-                    var payloadLine = line["data:".Length..].Trim();
-                    if (payloadLine == "[DONE]")
-                    {
-                        break;
-                    }
-
-                    var text = ExtractTextFromStreamEvent(payloadLine);
-                    if (!string.IsNullOrWhiteSpace(text))
-                    {
-                        buffer.Append(text);
-                        yield return text;
-                    }
-                }
-            }
-
-            if (buffer.Length == 0)
-            {
-                var fallback = await GenerateFinancialReplyAsync(userPrompt, intent, year, month, totalAmount, accounts, categories, cancellationToken);
-                foreach (var chunk in ChunkByWords(fallback, 4))
-                {
-                    yield return chunk;
-                }
-            }
+            foreach (var c in ChunkByWords(fallback, 4))
+                yield return c;
         }
     }
 
     public async Task<string> GenerateChitReplyAsync(string userPrompt, IReadOnlyList<ChitDetailItem> chits, CancellationToken cancellationToken = default)
     {
         if (chits.Count == 0)
-        {
             return "You don't have any chits (Chit Fund recurring expenses) set up, or no chits match your question. Add a recurring expense with category \"Chit Fund\" to track installments.";
-        }
 
         var chitLines = new StringBuilder();
         foreach (var c in chits)
@@ -351,9 +269,7 @@ Current user message: {userPrompt}
         }
 
         if (!HasApiKey())
-        {
             return BuildChitFallbackReply(chits, userPrompt);
-        }
 
         var focusInstruction = chits.Count == 1
             ? "The user asked about one specific chit. Answer only about that chit with the exact numbers below."
@@ -373,12 +289,8 @@ Current user message: {userPrompt}
 
         try
         {
-            var payload = new
-            {
-                contents = new[] { new { parts = new[] { new { text = prompt } } } },
-                generationConfig = new { temperature = 0.2 }
-            };
-            var response = await GenerateContentAsync(payload, cancellationToken);
+            var config = new GenerateContentConfig { Temperature = 0.2f };
+            var response = await GenerateContentAsync(prompt, config, cancellationToken);
             return string.IsNullOrWhiteSpace(response) ? BuildChitFallbackReply(chits, userPrompt) : response.Trim();
         }
         catch (Exception ex)
@@ -428,18 +340,12 @@ Current user message: {userPrompt}
             """;
 
         if (!HasApiKey())
-        {
             return "I can answer questions about your balance, income, expenses, chits, and recent transactions. Enable the Gemini API key in settings for full natural language answers.";
-        }
 
         try
         {
-            var payload = new
-            {
-                contents = new[] { new { parts = new[] { new { text = prompt } } } },
-                generationConfig = new { temperature = 0.2 }
-            };
-            var response = await GenerateContentAsync(payload, cancellationToken);
+            var config = new GenerateContentConfig { Temperature = 0.2f };
+            var response = await GenerateContentAsync(prompt, config, cancellationToken);
             return string.IsNullOrWhiteSpace(response) ? "I couldn't generate a reply. Try asking about your balance, income, expenses, or chits." : response.Trim();
         }
         catch (Exception ex)
@@ -449,65 +355,15 @@ Current user message: {userPrompt}
         }
     }
 
-    private async Task<string> GenerateContentAsync(object payload, CancellationToken cancellationToken)
-    {
-        if (!HasApiKey())
-        {
-            throw new InvalidOperationException("Gemini API key is not configured.");
-        }
-
-        var endpoint = BuildGeminiEndpoint(stream: false);
-
-        using var request = new HttpRequestMessage(HttpMethod.Post, endpoint)
-        {
-            Content = JsonContent.Create(payload)
-        };
-
-        using var response = await httpClient.SendAsync(request, cancellationToken);
-        var body = await response.Content.ReadAsStringAsync(cancellationToken);
-        if (!response.IsSuccessStatusCode)
-        {
-            throw new InvalidOperationException($"Gemini API call failed with status {(int)response.StatusCode}: {body}");
-        }
-
-        using var doc = JsonDocument.Parse(body);
-        if (!doc.RootElement.TryGetProperty("candidates", out var candidates) || candidates.GetArrayLength() == 0)
-        {
-            return string.Empty;
-        }
-
-        var first = candidates[0];
-        if (!first.TryGetProperty("content", out var content) || !content.TryGetProperty("parts", out var parts))
-        {
-            return string.Empty;
-        }
-
-        foreach (var part in parts.EnumerateArray())
-        {
-            if (part.TryGetProperty("text", out var textPart))
-            {
-                return textPart.GetString() ?? string.Empty;
-            }
-        }
-
-        return string.Empty;
-    }
-
     private static string StripCodeFence(string input)
     {
         var trimmed = input.Trim();
         if (!trimmed.StartsWith("```", StringComparison.Ordinal))
-        {
             return trimmed;
-        }
-
         var start = trimmed.IndexOf('\n');
         var end = trimmed.LastIndexOf("```", StringComparison.Ordinal);
         if (start < 0 || end <= start)
-        {
             return trimmed.Trim('`');
-        }
-
         return trimmed.Substring(start + 1, end - start - 1).Trim();
     }
 
@@ -525,7 +381,6 @@ Current user message: {userPrompt}
 
     private static void ApplyClarificationRules(IntentExtractionResult result, DateTime currentDate)
     {
-        // Default to current month/year when both missing so minimal queries like "balance" get an answer
         if (!result.Month.HasValue && !result.Year.HasValue)
         {
             result.Month = currentDate.Month;
@@ -534,7 +389,6 @@ Current user message: {userPrompt}
             result.ClarificationQuestion = null;
             return;
         }
-
         if (result.Month.HasValue && !result.Year.HasValue)
         {
             result.Year = currentDate.Year;
@@ -542,7 +396,6 @@ Current user message: {userPrompt}
             result.ClarificationQuestion = null;
             return;
         }
-
         if (!result.Month.HasValue && result.Year.HasValue)
         {
             result.NeedsClarification = true;
@@ -555,26 +408,16 @@ Current user message: {userPrompt}
         var lower = userPrompt.ToLowerInvariant();
         var intent = "other";
         if (lower.Contains("balance", StringComparison.Ordinal))
-        {
             intent = "balance";
-        }
         else if (lower.Contains("income", StringComparison.Ordinal) || lower.Contains("earn", StringComparison.Ordinal))
-        {
             intent = "income";
-        }
         else if (lower.Contains("expense", StringComparison.Ordinal) || lower.Contains("spent", StringComparison.Ordinal) || lower.Contains("spend", StringComparison.Ordinal))
-        {
             intent = "expense";
-        }
         else if (lower.Contains("chit", StringComparison.Ordinal) || lower.Contains("installment", StringComparison.Ordinal))
-        {
             intent = "chit";
-        }
 
         int? month = null;
         int? year = null;
-        string? accountName = null;
-
         if (lower.Contains("this month", StringComparison.Ordinal))
         {
             month = currentDate.Month;
@@ -586,58 +429,32 @@ Current user message: {userPrompt}
             month = d.Month;
             year = d.Year;
         }
-
-        if (!month.HasValue)
+        else
         {
             var monthNames = CultureInfo.InvariantCulture.DateTimeFormat.MonthNames;
             for (var i = 0; i < 12; i++)
             {
                 var m = monthNames[i];
-                if (string.IsNullOrWhiteSpace(m))
-                {
-                    continue;
-                }
-
+                if (string.IsNullOrWhiteSpace(m)) continue;
                 if (Regex.IsMatch(lower, $@"\b{Regex.Escape(m.ToLowerInvariant())}\b"))
                 {
                     month = i + 1;
+                    year = currentDate.Year;
                     break;
                 }
             }
         }
 
-        var yearMatch = Regex.Match(lower, @"\b(19|20)\d{2}\b");
-        if (yearMatch.Success && int.TryParse(yearMatch.Value, out var parsedYear))
-        {
-            year = parsedYear;
-        }
-
-        var accountMatch = Regex.Match(userPrompt, @"(?:account|bank)\s+([A-Za-z0-9 _-]{2,50})", RegexOptions.IgnoreCase);
-        if (accountMatch.Success)
-        {
-            accountName = accountMatch.Groups[1].Value.Trim();
-        }
-
-        var result = new IntentExtractionResult
+        return new IntentExtractionResult
         {
             Intent = intent,
             Month = month,
             Year = year,
-            AccountName = accountName
+            NeedsClarification = false
         };
-
-        if (intent is "balance" or "income" or "expense")
-        {
-            ApplyClarificationRules(result, currentDate);
-        }
-
-        return result;
     }
 
-    private bool HasApiKey()
-    {
-        return !string.IsNullOrWhiteSpace(_options.ApiKey);
-    }
+    private bool HasApiKey() => !string.IsNullOrWhiteSpace(_options.ApiKey);
 
     private static string BuildDeterministicReply(
         string intent,
@@ -646,20 +463,10 @@ Current user message: {userPrompt}
         IEnumerable<(string AccountName, decimal Amount)> accounts,
         IReadOnlyList<(string CategoryName, decimal Amount)>? categories = null)
     {
-        var noun = intent switch
-        {
-            "balance" => "balance",
-            "income" => "income",
-            "expense" => "expense",
-            _ => "value"
-        };
-
+        var noun = intent switch { "balance" => "balance", "income" => "income", "expense" => "expense", _ => "value" };
         var lines = accounts.Select(a => $"{a.AccountName}: {a.Amount:0.00}").ToList();
         if (lines.Count == 0 && (categories == null || categories.Count == 0))
-        {
             return $"No {noun} data found for {monthLabel}.";
-        }
-
         var breakdown = string.Join("; ", lines);
         if (intent == "expense" && categories is { Count: > 0 })
         {
@@ -669,63 +476,15 @@ Current user message: {userPrompt}
         return $"{monthLabel} {noun} total is {totalAmount:0.00}. Breakdown: {breakdown}.";
     }
 
-    private string BuildGeminiEndpoint(bool stream)
-    {
-        var model = string.IsNullOrWhiteSpace(_options.Model) ? "gemini-2.0-flash" : _options.Model.Trim();
-        var action = stream ? "streamGenerateContent" : "generateContent";
-        var streamQuery = stream ? "&alt=sse" : string.Empty;
-        return $"https://generativelanguage.googleapis.com/v1beta/models/{Uri.EscapeDataString(model)}:{action}?key={_options.ApiKey.Trim()}{streamQuery}";
-    }
-
-    private static string ExtractTextFromStreamEvent(string json)
-    {
-        try
-        {
-            using var doc = JsonDocument.Parse(json);
-            if (!doc.RootElement.TryGetProperty("candidates", out var candidates) || candidates.GetArrayLength() == 0)
-            {
-                return string.Empty;
-            }
-
-            var first = candidates[0];
-            if (!first.TryGetProperty("content", out var content) || !content.TryGetProperty("parts", out var parts))
-            {
-                return string.Empty;
-            }
-
-            foreach (var part in parts.EnumerateArray())
-            {
-                if (part.TryGetProperty("text", out var textPart))
-                {
-                    return textPart.GetString() ?? string.Empty;
-                }
-            }
-        }
-        catch
-        {
-            return string.Empty;
-        }
-
-        return string.Empty;
-    }
-
     private static IEnumerable<string> ChunkByWords(string text, int wordsPerChunk)
     {
-        if (string.IsNullOrWhiteSpace(text))
-        {
-            yield break;
-        }
-
+        if (string.IsNullOrWhiteSpace(text)) yield break;
         var words = text.Split(' ', StringSplitOptions.RemoveEmptyEntries);
         for (var i = 0; i < words.Length; i += wordsPerChunk)
         {
             var take = Math.Min(wordsPerChunk, words.Length - i);
             var chunk = string.Join(" ", words.Skip(i).Take(take));
-            if (i + take < words.Length)
-            {
-                chunk += " ";
-            }
-
+            if (i + take < words.Length) chunk += " ";
             yield return chunk;
         }
     }
