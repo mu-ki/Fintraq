@@ -48,6 +48,16 @@ public class AdminLogsController : Controller
         }
         return RedirectToAction(nameof(Index));
     }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> WipeLogs(CancellationToken cancellationToken = default)
+    {
+        await _logReader.WipeAsync(cancellationToken);
+        TempData["UserMessage"] = "Log buffer cleared.";
+        TempData["UserMessageType"] = "success";
+        return RedirectToAction(nameof(Index));
+    }
 }
 
 public class AdminLogsViewModel

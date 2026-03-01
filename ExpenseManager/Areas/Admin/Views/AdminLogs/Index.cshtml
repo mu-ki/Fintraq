@@ -2,11 +2,19 @@
 @{
     ViewData["Title"] = "Logs";
 }
-<h1 class="mb-4">Application logs</h1>
+<section class="page-header">
+    <div>
+        <p class="eyebrow">Admin</p>
+        <h1>Application logs</h1>
+        <p class="subtitle mb-0">View logs, set level, wipe buffer.</p>
+    </div>
+</section>
 
-<div class="card mb-4">
-    <div class="card-header">Log level</div>
-    <div class="card-body">
+<div class="panel mb-4">
+    <div class="panel-head">
+        <span class="eyebrow">Log level</span>
+    </div>
+    <div>
         <p class="mb-2">Current default level: <strong>@Model.CurrentLogLevel</strong>. Changing the level is saved and will apply after an application restart.</p>
         <form asp-action="SetLevel" method="post" class="d-inline">
             @Html.AntiForgeryToken()
@@ -21,19 +29,25 @@
     </div>
 </div>
 
-<div class="card">
-    <div class="card-header d-flex justify-content-between align-items-center">
+<div class="panel">
+    <div class="panel-head d-flex justify-content-between align-items-center flex-wrap gap-2">
         <span>Recent log entries (last @Model.Tail)</span>
-        <a asp-action="Index" asp-route-tail="500" class="btn btn-sm btn-outline-secondary">500</a>
+        <div class="d-flex align-items-center gap-2">
+            <a asp-action="Index" asp-route-tail="500" class="btn btn-sm btn-outline-secondary">Show 500</a>
+            <form asp-action="WipeLogs" method="post" class="d-inline" onsubmit="return confirm('Clear all log entries from the buffer?');">
+                @Html.AntiForgeryToken()
+                <button type="submit" class="btn btn-sm btn-outline-danger">Wipe logs</button>
+            </form>
+        </div>
     </div>
-    <div class="card-body p-0">
+    <div>
         @if (Model.LogEntries.Count == 0)
         {
             <p class="p-3 mb-0 text-muted">No log entries in buffer yet. Logging is captured in memory as the app runs.</p>
         }
         else
         {
-            <pre class="mb-0 p-3 small" style="max-height: 60vh; overflow: auto;">@foreach (var e in Model.LogEntries)
+            <pre class="mb-0 p-3 small admin-log-pre">@foreach (var e in Model.LogEntries)
 {
 @e.Timestamp @e.Level @e.Category
   @e.Message

@@ -7,4 +7,10 @@ public sealed class LogReaderService : ILogReaderService
         var list = InMemoryLogSink.GetRecent(count);
         return Task.FromResult(list);
     }
+
+    public Task WipeAsync(CancellationToken cancellationToken = default)
+    {
+        InMemoryLogSink.Clear();
+        return Task.CompletedTask;
+    }
 }

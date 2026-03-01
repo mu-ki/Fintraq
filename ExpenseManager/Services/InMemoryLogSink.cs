@@ -23,4 +23,9 @@ public static class InMemoryLogSink
             return list.Reverse().ToArray();
         return list.TakeLast(count).Reverse().ToArray();
     }
+
+    public static void Clear()
+    {
+        while (Buffer.TryDequeue(out _)) { }
+    }
 }

@@ -1,34 +1,36 @@
 @{
     ViewData["Title"] = "Dashboard";
 }
-<h1 class="mb-4">Admin panel</h1>
-<p class="text-muted">Manage users, AI settings, and view logs.</p>
-<div class="row g-3">
+<section class="page-header">
+    <div>
+        <p class="eyebrow">Admin</p>
+        <h1>Admin panel</h1>
+        <p class="subtitle mb-0">Manage users, AI settings, and view logs.</p>
+    </div>
+</section>
+<div class="row g-4">
     <div class="col-md-4">
-        <div class="card">
-            <div class="card-body">
-                <h5 class="card-title">User management</h5>
-                <p class="card-text">List users, update passwords, activate or deactivate accounts.</p>
-                <a asp-area="Admin" asp-controller="AdminUsers" asp-action="Index" class="btn btn-primary">Open</a>
-            </div>
+        <div class="panel h-100">
+            <p class="eyebrow">Users</p>
+            <h2 class="h5 mb-2">User management</h2>
+            <p class="text-muted small mb-3">List users, update passwords, activate or deactivate accounts.</p>
+            <a asp-area="Admin" asp-controller="AdminUsers" asp-action="Index" class="btn btn-primary">Open</a>
         </div>
     </div>
     <div class="col-md-4">
-        <div class="card">
-            <div class="card-body">
-                <h5 class="card-title">AI settings</h5>
-                <p class="card-text">Update API key, choose model, view token usage history.</p>
-                <a asp-area="Admin" asp-controller="AdminAi" asp-action="Index" class="btn btn-primary">Open</a>
-            </div>
+        <div class="panel h-100">
+            <p class="eyebrow">AI</p>
+            <h2 class="h5 mb-2">AI settings</h2>
+            <p class="text-muted small mb-3">Update API key, choose model, view token usage history.</p>
+            <a asp-area="Admin" asp-controller="AdminAi" asp-action="Index" class="btn btn-primary">Open</a>
         </div>
     </div>
     <div class="col-md-4">
-        <div class="card">
-            <div class="card-body">
-                <h5 class="card-title">Logs</h5>
-                <p class="card-text">View application logs and set log level.</p>
-                <a asp-area="Admin" asp-controller="AdminLogs" asp-action="Index" class="btn btn-primary">Open</a>
-            </div>
+        <div class="panel h-100">
+            <p class="eyebrow">Logs</p>
+            <h2 class="h5 mb-2">Logs</h2>
+            <p class="text-muted small mb-3">View application logs, set log level, wipe buffer.</p>
+            <a asp-area="Admin" asp-controller="AdminLogs" asp-action="Index" class="btn btn-primary">Open</a>
         </div>
     </div>
 </div>
