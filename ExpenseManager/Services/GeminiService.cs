@@ -5,6 +5,7 @@ using System.Text.Json;
 using System.Text;
 using System.Text.RegularExpressions;
 using ExpenseManager.Configuration;
+using ExpenseManager.Models.Chat;
 using Microsoft.Extensions.Options;
 
 namespace ExpenseManager.Services;
@@ -49,7 +50,7 @@ You are an intent parser for a personal finance assistant. Be helpful and infer 
 Today is {currentDate:yyyy-MM-dd}.
 {contextBlock}Return ONLY valid JSON with this exact shape:
 {{
-  ""intent"": ""balance|income|expense|other"",
+  ""intent"": ""balance|income|expense|chit|other"",
   ""month"": 1-12 or null,
   ""year"": yyyy or null,
   ""accountName"": ""string or null"",
@@ -60,10 +61,11 @@ Today is {currentDate:yyyy-MM-dd}.
 Rules:
 - Resolve relative dates: ""this month"", ""last month"", ""current month"" -> use today's month/year.
 - For very short or minimal queries (e.g. ""balance"", ""income"", ""expense"", ""march"", ""march balance"") infer intent and, when no date is given, default to current month and year (set month and year from today) so the user gets an answer without being asked. Set needsClarification=false in that case.
+- If the user asks about chit installments (e.g. ""how many installments completed"", ""installment amount"", ""Thiyagu Chit"", ""Thiya Mama Chit"", ""how much installment"", ""chit completed"") set intent to ""chit"". No month/year needed for chit.
 - If the user says ""that month"", ""same"", ""yes"" or refers to a month/year mentioned in the recent conversation, use that month/year.
 - Only set needsClarification=true when the user explicitly asks something ambiguous that cannot be inferred from context (e.g. ""which year?"" when multiple years were discussed).
 - If month is present but year is missing, use current year. If only year is given, set needsClarification=true and ask which month.
-- If query is not about income/expense/balance, set intent to ""other"".
+- If query is not about income/expense/balance/chit, set intent to ""other"".
 
 Current user message: {userPrompt}
 ";
@@ -98,7 +100,7 @@ Current user message: {userPrompt}
             }
 
             parsed.Intent = NormalizeIntent(parsed.Intent);
-            if (parsed.Intent is "balance" or "income" or "expense")
+            if (parsed.Intent is "balance" or "income" or "expense" or "chit")
             {
                 ApplyClarificationRules(parsed, currentDate);
             }
@@ -119,7 +121,8 @@ Current user message: {userPrompt}
         int month,
         decimal totalAmount,
         IEnumerable<(string AccountName, decimal Amount)> accounts,
-        CancellationToken cancellationToken)
+        IEnumerable<(string CategoryName, decimal Amount)>? categories = null,
+        CancellationToken cancellationToken = default)
     {
         var monthLabel = new DateTime(year, month, 1).ToString("MMMM yyyy", CultureInfo.InvariantCulture);
         var accountLines = string.Join("\n", accounts.Select(a => $"- {a.AccountName}: {a.Amount:0.00}"));
@@ -128,9 +131,17 @@ Current user message: {userPrompt}
             accountLines = "- No account entries";
         }
 
+        var categoryLines = "";
+        var categoriesList = categories?.ToList() ?? new List<(string CategoryName, decimal Amount)>();
+        if (intent == "expense" && categoriesList.Count > 0)
+        {
+            categoryLines = "\nCategory breakdown (use this to answer questions about specific categories like Chit Fund, Food, etc.):\n"
+                + string.Join("\n", categoriesList.Select(c => $"- {c.CategoryName}: {c.Amount:0.00}"));
+        }
+
         if (!HasApiKey())
         {
-            return BuildDeterministicReply(intent, monthLabel, totalAmount, accounts);
+            return BuildDeterministicReply(intent, monthLabel, totalAmount, accounts, categoriesList);
         }
 
         var prompt = $"""
@@ -141,6 +152,7 @@ Current user message: {userPrompt}
             Total amount: {totalAmount:0.00}
             Account breakdown:
             {accountLines}
+            {categoryLines}
 
             User asked: {userPrompt}
             Respond with plain text only.
@@ -168,13 +180,13 @@ Current user message: {userPrompt}
 
             var response = await GenerateContentAsync(payload, cancellationToken);
             return string.IsNullOrWhiteSpace(response)
-                ? BuildDeterministicReply(intent, monthLabel, totalAmount, accounts)
+                ? BuildDeterministicReply(intent, monthLabel, totalAmount, accounts, categoriesList)
                 : response.Trim();
         }
         catch (Exception ex)
         {
             logger.LogWarning(ex, "Gemini reply generation failed. Falling back to deterministic response.");
-            return BuildDeterministicReply(intent, monthLabel, totalAmount, accounts);
+            return BuildDeterministicReply(intent, monthLabel, totalAmount, accounts, categoriesList);
         }
     }
 
@@ -185,7 +197,8 @@ Current user message: {userPrompt}
         int month,
         decimal totalAmount,
         IEnumerable<(string AccountName, decimal Amount)> accounts,
-        [EnumeratorCancellation] CancellationToken cancellationToken)
+        IEnumerable<(string CategoryName, decimal Amount)>? categories = null,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         var monthLabel = new DateTime(year, month, 1).ToString("MMMM yyyy", CultureInfo.InvariantCulture);
         var accountLines = string.Join("\n", accounts.Select(a => $"- {a.AccountName}: {a.Amount:0.00}"));
@@ -194,9 +207,17 @@ Current user message: {userPrompt}
             accountLines = "- No account entries";
         }
 
+        var categoriesList = categories?.ToList() ?? new List<(string CategoryName, decimal Amount)>();
+        var categoryLines = "";
+        if (intent == "expense" && categoriesList.Count > 0)
+        {
+            categoryLines = "\nCategory breakdown (use this to answer questions about specific categories like Chit Fund, Food, etc.):\n"
+                + string.Join("\n", categoriesList.Select(c => $"- {c.CategoryName}: {c.Amount:0.00}"));
+        }
+
         if (!HasApiKey())
         {
-            var fallback = BuildDeterministicReply(intent, monthLabel, totalAmount, accounts);
+            var fallback = BuildDeterministicReply(intent, monthLabel, totalAmount, accounts, categoriesList);
             foreach (var chunk in ChunkByWords(fallback, 4))
             {
                 yield return chunk;
@@ -213,6 +234,7 @@ Current user message: {userPrompt}
             Total amount: {totalAmount:0.00}
             Account breakdown:
             {accountLines}
+            {categoryLines}
 
             User asked: {userPrompt}
             Respond with plain text only.
@@ -250,7 +272,7 @@ Current user message: {userPrompt}
         catch (Exception ex)
         {
             logger.LogWarning(ex, "Gemini stream request failed. Falling back to non-stream response.");
-            var fallback = await GenerateFinancialReplyAsync(userPrompt, intent, year, month, totalAmount, accounts, cancellationToken);
+            var fallback = await GenerateFinancialReplyAsync(userPrompt, intent, year, month, totalAmount, accounts, categories, cancellationToken);
             foreach (var chunk in ChunkByWords(fallback, 4))
             {
                 // yield return chunk;
@@ -265,7 +287,7 @@ Current user message: {userPrompt}
             {
                 var body = await response.Content.ReadAsStringAsync(cancellationToken);
                 logger.LogWarning("Gemini stream response failed with status {Status}: {Body}", (int)response.StatusCode, body);
-                var fallback = await GenerateFinancialReplyAsync(userPrompt, intent, year, month, totalAmount, accounts, cancellationToken);
+                var fallback = await GenerateFinancialReplyAsync(userPrompt, intent, year, month, totalAmount, accounts, categories, cancellationToken);
                 foreach (var chunk in ChunkByWords(fallback, 4))
                 {
                     yield return chunk;
@@ -305,13 +327,67 @@ Current user message: {userPrompt}
 
             if (buffer.Length == 0)
             {
-                var fallback = await GenerateFinancialReplyAsync(userPrompt, intent, year, month, totalAmount, accounts, cancellationToken);
+                var fallback = await GenerateFinancialReplyAsync(userPrompt, intent, year, month, totalAmount, accounts, categories, cancellationToken);
                 foreach (var chunk in ChunkByWords(fallback, 4))
                 {
                     yield return chunk;
                 }
             }
         }
+    }
+
+    public async Task<string> GenerateChitReplyAsync(string userPrompt, IReadOnlyList<ChitDetailItem> chits, CancellationToken cancellationToken = default)
+    {
+        if (chits.Count == 0)
+        {
+            return "You don't have any chits (Chit Fund recurring expenses) set up, or no chits match your question. Add a recurring expense with category \"Chit Fund\" to track installments.";
+        }
+
+        var chitLines = new StringBuilder();
+        foreach (var c in chits)
+        {
+            var totalStr = c.TotalInstallments.HasValue ? $"{c.TotalInstallments} total" : "ongoing";
+            chitLines.AppendLine($"- {c.Title}: Installment amount {c.InstallmentAmount:0.00}; Completed: {c.CompletedCount} ({totalStr}); Start: {c.StartDate ?? "—"}; End: {c.EndDate ?? "—"}; Frequency: {c.FrequencyLabel ?? "—"}");
+        }
+
+        if (!HasApiKey())
+        {
+            return BuildChitFallbackReply(chits);
+        }
+
+        var prompt = $"""
+            You are a finance assistant. The user has the following chits (recurring Chit Fund installments). Use this data to answer their question precisely.
+            Chit details:
+            {chitLines}
+            User asked: {userPrompt}
+            Answer in plain text. For "how many installments completed" give the number for the chit they asked about (match by name, e.g. Thiyagu Chit, Thiya Mama Chit). For "installment amount" give the amount for that chit. If they don't name a chit and there are multiple, list each or ask which one.
+            """;
+
+        try
+        {
+            var payload = new
+            {
+                contents = new[] { new { parts = new[] { new { text = prompt } } } },
+                generationConfig = new { temperature = 0.2 }
+            };
+            var response = await GenerateContentAsync(payload, cancellationToken);
+            return string.IsNullOrWhiteSpace(response) ? BuildChitFallbackReply(chits) : response.Trim();
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Chit reply generation failed. Using fallback.");
+            return BuildChitFallbackReply(chits);
+        }
+    }
+
+    private static string BuildChitFallbackReply(IReadOnlyList<ChitDetailItem> chits)
+    {
+        var lines = chits.Select(c =>
+        {
+            var totalStr = c.TotalInstallments.HasValue ? $"{c.CompletedCount} of {c.TotalInstallments}" : $"{c.CompletedCount} completed (ongoing)";
+            return $"{c.Title}: installment {c.InstallmentAmount:0.00}, {totalStr}";
+        });
+        return "Chit details: " + string.Join("; ", lines);
     }
 
     private async Task<string> GenerateContentAsync(object payload, CancellationToken cancellationToken)
@@ -383,6 +459,7 @@ Current user message: {userPrompt}
             "balance" => "balance",
             "income" => "income",
             "expense" => "expense",
+            "chit" => "chit",
             _ => "other"
         };
     }
@@ -429,6 +506,10 @@ Current user message: {userPrompt}
         else if (lower.Contains("expense", StringComparison.Ordinal) || lower.Contains("spent", StringComparison.Ordinal) || lower.Contains("spend", StringComparison.Ordinal))
         {
             intent = "expense";
+        }
+        else if (lower.Contains("chit", StringComparison.Ordinal) || lower.Contains("installment", StringComparison.Ordinal))
+        {
+            intent = "chit";
         }
 
         int? month = null;
@@ -503,7 +584,8 @@ Current user message: {userPrompt}
         string intent,
         string monthLabel,
         decimal totalAmount,
-        IEnumerable<(string AccountName, decimal Amount)> accounts)
+        IEnumerable<(string AccountName, decimal Amount)> accounts,
+        IReadOnlyList<(string CategoryName, decimal Amount)>? categories = null)
     {
         var noun = intent switch
         {
@@ -514,12 +596,18 @@ Current user message: {userPrompt}
         };
 
         var lines = accounts.Select(a => $"{a.AccountName}: {a.Amount:0.00}").ToList();
-        if (lines.Count == 0)
+        if (lines.Count == 0 && (categories == null || categories.Count == 0))
         {
             return $"No {noun} data found for {monthLabel}.";
         }
 
-        return $"{monthLabel} {noun} total is {totalAmount:0.00}. Breakdown: {string.Join("; ", lines)}.";
+        var breakdown = string.Join("; ", lines);
+        if (intent == "expense" && categories is { Count: > 0 })
+        {
+            var catBreakdown = string.Join("; ", categories.Select(c => $"{c.CategoryName}: {c.Amount:0.00}"));
+            breakdown = string.IsNullOrEmpty(breakdown) ? catBreakdown : $"{breakdown}. By category: {catBreakdown}";
+        }
+        return $"{monthLabel} {noun} total is {totalAmount:0.00}. Breakdown: {breakdown}.";
     }
 
     private string BuildGeminiEndpoint(bool stream)

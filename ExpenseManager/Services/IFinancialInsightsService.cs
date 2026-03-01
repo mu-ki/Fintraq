@@ -7,6 +7,7 @@ public interface IFinancialInsightsService
     Task<FinancialQueryResult> GetBalanceAsync(string userId, int year, int month, string? accountName, CancellationToken cancellationToken);
     Task<FinancialQueryResult> GetIncomeAsync(string userId, int year, int month, string? accountName, CancellationToken cancellationToken);
     Task<FinancialQueryResult> GetExpenseAsync(string userId, int year, int month, string? accountName, CancellationToken cancellationToken);
+    Task<FinancialQueryResult> GetChitDetailsAsync(string userId, CancellationToken cancellationToken);
 }
 
 public sealed class FinancialQueryResult

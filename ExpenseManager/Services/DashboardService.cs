@@ -358,6 +358,15 @@ public class DashboardService(ApplicationDbContext dbContext) : IDashboardServic
 
         return (diffMonths / interval) + 1;
     }
+
+    public int? GetTotalScheduledInstallments(TransactionEntry recurring)
+    {
+        if (!recurring.EndDate.HasValue || !recurring.StartDate.HasValue || recurring.Frequency is null)
+        {
+            return null;
+        }
+        return CountOccurrencesUntil(recurring, recurring.EndDate.Value);
+    }
 }
 
 

@@ -77,40 +77,38 @@ public sealed class ChatAssistantService(
         var sb = new StringBuilder();
         try
         {
-            await foreach (var textChunk in geminiService.StreamFinancialReplyAsync(
-                               userMessage,
-                               data.Intent,
-                               data.Year!.Value,
-                               data.Month!.Value,
-                               data.TotalAmount,
-                               data.Accounts.Select(a => (a.AccountName, a.Amount)),
-                               cancellationToken))
+            if (data.Intent == "chit")
             {
-                if (string.IsNullOrWhiteSpace(textChunk))
+                var chitReply = await geminiService.GenerateChitReplyAsync(userMessage, data.Chits, cancellationToken);
+                sb.Append(chitReply);
+            }
+            else
+            {
+                await foreach (var textChunk in geminiService.StreamFinancialReplyAsync(
+                                   userMessage,
+                                   data.Intent,
+                                   data.Year!.Value,
+                                   data.Month!.Value,
+                                   data.TotalAmount,
+                                   data.Accounts.Select(a => (a.AccountName, a.Amount)),
+                                   data.Intent == "expense" && data.Categories.Count > 0 ? data.Categories.Select(c => (c.CategoryName, c.Amount)) : null,
+                                   cancellationToken))
                 {
-                    continue;
-                }
+                    if (string.IsNullOrWhiteSpace(textChunk))
+                    {
+                        continue;
+                    }
 
-                sb.Append(textChunk);
-                // return new ChatStreamChunk
-                // {
-                //     Type = "chunk",
-                //     Content = textChunk
-                // };
-                yield break;
+                    sb.Append(textChunk);
+                    yield break;
+                }
             }
         }
         catch (Exception ex)
         {
             logger.LogWarning(ex, "Streaming reply failed, generating fallback response.");
-            var fallback = BuildFallbackReply(data);
-            sb.Append(fallback);
+            sb.Append(BuildFallbackReply(data));
             yield break;
-            // return new ChatStreamChunk
-            // {
-            //     Type = "chunk",
-            //     Content = fallback
-            // };
         }
 
         var finalText = sb.ToString().Trim();
@@ -183,14 +181,23 @@ public sealed class ChatAssistantService(
         var data = quickResult.data!;
         try
         {
-            var reply = await geminiService.GenerateFinancialReplyAsync(
-                userMessage,
-                data.Intent,
-                data.Year!.Value,
-                data.Month!.Value,
-                data.TotalAmount,
-                data.Accounts.Select(a => (a.AccountName, a.Amount)),
-                cancellationToken);
+            string reply;
+            if (data.Intent == "chit")
+            {
+                reply = await geminiService.GenerateChitReplyAsync(userMessage, data.Chits, cancellationToken);
+            }
+            else
+            {
+                reply = await geminiService.GenerateFinancialReplyAsync(
+                    userMessage,
+                    data.Intent,
+                    data.Year!.Value,
+                    data.Month!.Value,
+                    data.TotalAmount,
+                    data.Accounts.Select(a => (a.AccountName, a.Amount)),
+                    data.Intent == "expense" && data.Categories.Count > 0 ? data.Categories.Select(c => (c.CategoryName, c.Amount)) : null,
+                    cancellationToken);
+            }
 
             return new ChatQueryResponse
             {
@@ -224,14 +231,20 @@ public sealed class ChatAssistantService(
             }, null);
         }
 
-        if (intent.Intent is not ("balance" or "income" or "expense"))
+        if (intent.Intent is not ("balance" or "income" or "expense" or "chit"))
         {
             return (new ChatQueryResponse
             {
-                Reply = "I can help with balance, income, and expense details. Ask a question like 'What is my balance in March 2026?'.",
+                Reply = "I can help with balance, income, expense, and chit installment details. Ask a question like 'What is my balance in March 2026?' or 'How many installments completed in Thiyagu Chit?'.",
                 RequiresClarification = true,
-                ClarificationQuestion = "Please ask for balance, income, or expense with month and year."
+                ClarificationQuestion = "Please ask for balance, income, expense, or chit installments."
             }, null);
+        }
+
+        if (intent.Intent == "chit")
+        {
+            var chitResult = await financialInsightsService.GetChitDetailsAsync(userId, cancellationToken);
+            return (null, chitResult.Data);
         }
 
         if (!intent.Month.HasValue || !intent.Year.HasValue)
@@ -299,6 +312,20 @@ public sealed class ChatAssistantService(
 
     private static string BuildFallbackReply(ChatDataPayload data)
     {
+        if (data.Intent == "chit")
+        {
+            if (data.Chits.Count == 0)
+            {
+                return "No chits (Chit Fund recurring expenses) found. Add a recurring expense with category \"Chit Fund\" to track installments.";
+            }
+            var lines = data.Chits.Select(c =>
+            {
+                var totalStr = c.TotalInstallments.HasValue ? $"{c.CompletedCount} of {c.TotalInstallments}" : $"{c.CompletedCount} completed (ongoing)";
+                return $"{c.Title}: installment {c.InstallmentAmount:0.00}, {totalStr}";
+            });
+            return "Chit details: " + string.Join("; ", lines);
+        }
+
         var descriptor = data.Intent switch
         {
             "balance" => "balance",
@@ -307,12 +334,17 @@ public sealed class ChatAssistantService(
             _ => "amount"
         };
 
-        if (data.Accounts.Count == 0)
+        if (data.Accounts.Count == 0 && (data.Categories == null || data.Categories.Count == 0))
         {
             return $"No {descriptor} data found for {data.MonthLabel ?? "the selected month"}.";
         }
 
         var breakdown = string.Join("; ", data.Accounts.Select(a => $"{a.AccountName}: {a.Amount:0.00}"));
+        if (data.Intent == "expense" && data.Categories.Count > 0)
+        {
+            var catBreakdown = string.Join("; ", data.Categories.Select(c => $"{c.CategoryName}: {c.Amount:0.00}"));
+            breakdown = string.IsNullOrEmpty(breakdown) ? catBreakdown : $"{breakdown}. By category: {catBreakdown}";
+        }
         return $"{data.MonthLabel}: total {descriptor} is {data.TotalAmount:0.00}. Breakdown: {breakdown}.";
     }
 }

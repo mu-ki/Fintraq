@@ -25,6 +25,86 @@ public sealed class FinancialInsightsService(
         return BuildMonthlyFlowResultAsync(userId, year, month, accountName, TransactionKind.Expense, cancellationToken);
     }
 
+    public async Task<FinancialQueryResult> GetChitDetailsAsync(string userId, CancellationToken cancellationToken)
+    {
+        var chitFundCategory = await dbContext.Categories
+            .AsNoTracking()
+            .SingleOrDefaultAsync(c => c.Type == CategoryType.Expense && c.Name == "Chit Fund", cancellationToken);
+        if (chitFundCategory is null)
+        {
+            return new FinancialQueryResult
+            {
+                Data = new ChatDataPayload
+                {
+                    Intent = "chit",
+                    Chits = new List<ChitDetailItem>()
+                }
+            };
+        }
+
+        var chits = await dbContext.Transactions
+            .AsNoTracking()
+            .Where(t =>
+                t.UserId == userId &&
+                t.EntryRole == TransactionEntryRole.Standard &&
+                t.ScheduleType == ScheduleType.Recurring &&
+                t.Kind == TransactionKind.Expense &&
+                t.CategoryId == chitFundCategory.Id &&
+                t.IsActive)
+            .OrderBy(t => t.Title)
+            .ToListAsync(cancellationToken);
+
+        if (chits.Count == 0)
+        {
+            return new FinancialQueryResult
+            {
+                Data = new ChatDataPayload
+                {
+                    Intent = "chit",
+                    Chits = new List<ChitDetailItem>()
+                }
+            };
+        }
+
+        var parentIds = chits.Select(c => c.Id).ToHashSet();
+        var completionCounts = await dbContext.Transactions
+            .Where(t =>
+                t.UserId == userId &&
+                t.EntryRole == TransactionEntryRole.RecurringCompletion &&
+                t.ParentTransactionId.HasValue &&
+                parentIds.Contains(t.ParentTransactionId.Value) &&
+                !t.IsDeleted)
+            .GroupBy(t => t.ParentTransactionId!.Value)
+            .Select(g => new { ParentId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.ParentId, x => x.Count, cancellationToken);
+
+        var items = new List<ChitDetailItem>();
+        foreach (var chit in chits)
+        {
+            var completed = completionCounts.GetValueOrDefault(chit.Id, 0);
+            var total = dashboardService.GetTotalScheduledInstallments(chit);
+            items.Add(new ChitDetailItem
+            {
+                Title = chit.Title,
+                InstallmentAmount = chit.Amount,
+                StartDate = chit.StartDate?.ToString("dd-MMM-yyyy", CultureInfo.InvariantCulture),
+                EndDate = chit.EndDate?.ToString("dd-MMM-yyyy", CultureInfo.InvariantCulture),
+                FrequencyLabel = chit.Frequency.HasValue ? chit.Frequency.Value.ToString() : null,
+                CompletedCount = completed,
+                TotalInstallments = total
+            });
+        }
+
+        return new FinancialQueryResult
+        {
+            Data = new ChatDataPayload
+            {
+                Intent = "chit",
+                Chits = items
+            }
+        };
+    }
+
     private async Task<FinancialQueryResult> BuildBalanceResultAsync(string userId, int year, int month, string? accountName, CancellationToken cancellationToken)
     {
         var accounts = await dbContext.BankAccounts
@@ -185,6 +265,41 @@ public sealed class FinancialInsightsService(
             .OrderByDescending(x => x.Amount)
             .ToList();
 
+        List<CategoryAmountItem>? categoryItems = null;
+        if (kind == TransactionKind.Expense)
+        {
+            var categoryTotals = new Dictionary<Guid, decimal>();
+            foreach (var entry in oneTimes)
+            {
+                var key = entry.CategoryId;
+                categoryTotals[key] = categoryTotals.GetValueOrDefault(key) + entry.Amount;
+            }
+            foreach (var entry in dueRecurring)
+            {
+                var key = entry.CategoryId;
+                categoryTotals[key] = categoryTotals.GetValueOrDefault(key) + EffectiveRecurringAmount(entry);
+            }
+            var categoryIds = categoryTotals.Keys.ToList();
+            if (categoryIds.Count > 0)
+            {
+                var categoryNames = await dbContext.Categories
+                    .Where(c => categoryIds.Contains(c.Id))
+                    .ToDictionaryAsync(c => c.Id, c => c.Name ?? "Unknown", cancellationToken);
+                categoryItems = categoryTotals
+                    .Select(kvp => new CategoryAmountItem
+                    {
+                        CategoryName = categoryNames.GetValueOrDefault(kvp.Key, "Unknown"),
+                        Amount = decimal.Round(kvp.Value, 2)
+                    })
+                    .OrderByDescending(x => x.Amount)
+                    .ToList();
+            }
+            else
+            {
+                categoryItems = new List<CategoryAmountItem>();
+            }
+        }
+
         return new FinancialQueryResult
         {
             Data = new ChatDataPayload
@@ -194,6 +309,7 @@ public sealed class FinancialInsightsService(
                 Month = month,
                 MonthLabel = new DateTime(year, month, 1).ToString("MMMM yyyy", CultureInfo.InvariantCulture),
                 Accounts = items,
+                Categories = categoryItems ?? new List<CategoryAmountItem>(),
                 TotalAmount = decimal.Round(items.Sum(a => a.Amount), 2)
             }
         };
