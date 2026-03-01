@@ -12,12 +12,14 @@ public class AdminAiController : Controller
 {
     private readonly IAdminSettingsService _adminSettings;
     private readonly IAiTokenUsageService _tokenUsage;
+    private readonly IGeminiModelsService _geminiModels;
     private readonly IConfiguration _config;
 
-    public AdminAiController(IAdminSettingsService adminSettings, IAiTokenUsageService tokenUsage, IConfiguration config)
+    public AdminAiController(IAdminSettingsService adminSettings, IAiTokenUsageService tokenUsage, IGeminiModelsService geminiModels, IConfiguration config)
     {
         _adminSettings = adminSettings;
         _tokenUsage = tokenUsage;
+        _geminiModels = geminiModels;
         _config = config;
     }
 
@@ -29,6 +31,14 @@ public class AdminAiController : Controller
         var configKey = _config["Gemini:ApiKey"] ?? "";
         var configModel = _config["Gemini:Model"] ?? "gemini-2.0-flash";
         var model = !string.IsNullOrWhiteSpace(modelFromDb) ? modelFromDb : configModel;
+
+        var effectiveKey = !string.IsNullOrWhiteSpace(apiKeyFromDb) ? apiKeyFromDb : configKey;
+        var availableModels = (await _geminiModels.ListModelNamesAsync(effectiveKey, cancellationToken)).ToList();
+        if (availableModels.Count == 0)
+            availableModels = new List<string> { "gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro", "gemini-1.0-pro" };
+        if (!string.IsNullOrEmpty(model) && !availableModels.Contains(model))
+            availableModels.Insert(0, model);
+
         var (totalPrompt, totalCompletion, totalCalls) = await _tokenUsage.GetTotalsAsync(null, null, null, cancellationToken);
         var history = await _tokenUsage.GetHistoryAsync(50, 0, null, cancellationToken);
         var vm = new AdminAiViewModel
@@ -36,7 +46,7 @@ public class AdminAiController : Controller
             ApiKeyOverride = apiKeyFromDb ?? "",
             ApiKeyFromConfig = string.IsNullOrEmpty(configKey) ? "" : "***configured***",
             Model = model,
-            AvailableModels = new[] { "gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro", "gemini-1.0-pro" },
+            AvailableModels = availableModels.ToArray(),
             TotalPromptTokens = totalPrompt,
             TotalCompletionTokens = totalCompletion,
             TotalCalls = totalCalls,

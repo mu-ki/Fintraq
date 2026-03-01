@@ -47,12 +47,48 @@
         }
         else
         {
-            <pre class="mb-0 p-3 small admin-log-pre">@foreach (var e in Model.LogEntries)
-{
-@e.Timestamp @e.Level @e.Category
-  @e.Message
-  @(e.Exception != null ? e.Exception + "\n" : "")
-}</pre>
+            <div class="table-responsive admin-log-table-wrap">
+                <table class="table table-sm table-hover mb-0 align-top">
+                    <thead>
+                        <tr>
+                            <th class="text-nowrap">Timestamp</th>
+                            <th class="text-nowrap">Level</th>
+                            <th class="text-nowrap">Category</th>
+                            <th>Message</th>
+                            <th class="text-nowrap">Exception</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var e in Model.LogEntries)
+                        {
+                            <tr>
+                                <td class="text-nowrap small">@e.Timestamp</td>
+                                <td class="text-nowrap">
+                                    <span class="badge bg-@(e.Level == "Error" || e.Level == "Critical" ? "danger" : e.Level == "Warning" ? "warning text-dark" : e.Level == "Information" ? "info" : "secondary")">@e.Level</span>
+                                </td>
+                                <td class="small text-muted">@e.Category</td>
+                                <td class="small">@e.Message</td>
+                                <td class="small">
+                                    @if (!string.IsNullOrEmpty(e.Exception))
+                                    {
+                                        <span class="text-danger" title="@e.Exception">@(e.Exception.Length > 80 ? e.Exception.Substring(0, 80) + "…" : e.Exception)</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">—</span>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
         }
     </div>
 </div>
+<style>
+    .admin-log-table-wrap { max-height: 65vh; overflow: auto; }
+    .admin-log-table-wrap table { font-size: 0.875rem; }
+    .admin-log-table-wrap td { word-break: break-word; vertical-align: top !important; }
+    .admin-log-table-wrap th { position: sticky; top: 0; background: var(--surface, #fff); z-index: 1; box-shadow: 0 1px 0 var(--line, #dee2e6); }
+</style>
