@@ -13,7 +13,7 @@
 
     let isOpen = false;
     let isPending = false;
-    let hasGreeted = false;
+    let historyLoaded = false;
 
     const renderMessage = (text, role) => {
         const bubble = document.createElement("div");
@@ -41,9 +41,20 @@
         toggle.setAttribute("aria-expanded", String(isOpen));
 
         if (isOpen) {
-            if (!hasGreeted) {
-                renderMessage("Ask balance, income, or expenses by month. You can type short phrases like \"balance\" or \"income\" — I'll use this month if you don't specify.", "assistant");
-                hasGreeted = true;
+            if (!historyLoaded) {
+                historyLoaded = true;
+                fetch("/api/chat/history")
+                    .then((res) => res.ok ? res.json() : [])
+                    .then((messages) => {
+                        if (Array.isArray(messages) && messages.length > 0) {
+                            messages.forEach((m) => renderMessage(m.content || "", m.role || "assistant"));
+                        } else {
+                            renderMessage("Ask balance, income, or expenses by month. You can type short phrases like \"balance\" or \"income\" — I'll use this month if you don't specify.", "assistant");
+                        }
+                    })
+                    .catch(() => {
+                        renderMessage("Ask balance, income, or expenses by month. You can type short phrases like \"balance\" or \"income\" — I'll use this month if you don't specify.", "assistant");
+                    });
             }
             setTimeout(() => input.focus(), 120);
         }

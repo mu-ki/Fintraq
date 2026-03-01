@@ -47,7 +47,19 @@
                 log.scrollTop = log.scrollHeight;
             };
 
-            append("Ask me balance, income, or expense by month. You can type short phrases like \"balance\" or \"income\" — I'll use this month if you don't specify.", "assistant");
+            const loadHistory = async () => {
+                try {
+                    const res = await fetch('/api/chat/history');
+                    if (!res.ok) return;
+                    const messages = await res.json();
+                    if (Array.isArray(messages) && messages.length > 0) {
+                        messages.forEach(m => append(m.content || '', m.role || 'assistant'));
+                        return;
+                    }
+                } catch (_) { /* ignore */ }
+                append("Ask me balance, income, or expense by month. You can type short phrases like \"balance\" or \"income\" — I'll use this month if you don't specify.", "assistant");
+            };
+            loadHistory();
 
             document.querySelectorAll('#chatSuggestions .chat-chip').forEach(btn => {
                 btn.addEventListener('click', () => {

@@ -30,4 +30,17 @@ public class ChatApiController(
         var response = await chatAssistantService.HandleAsync(userId, request, cancellationToken);
         return Ok(response);
     }
+
+    [HttpGet("history")]
+    public async Task<ActionResult<IReadOnlyList<ChatHistoryMessage>>> GetHistory(CancellationToken cancellationToken)
+    {
+        var userId = userManager.GetUserId(User);
+        if (string.IsNullOrWhiteSpace(userId))
+        {
+            return Challenge();
+        }
+
+        var history = await chatAssistantService.GetHistoryAsync(userId, cancellationToken);
+        return Ok(history);
+    }
 }
