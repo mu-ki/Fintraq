@@ -24,6 +24,7 @@ builder.Services.Configure<GeminiOptions>(builder.Configuration.GetSection("Gemi
 builder.Services.AddScoped<IGeminiService, GeminiService>();
 builder.Services.AddScoped<IFinancialInsightsService, FinancialInsightsService>();
 builder.Services.AddScoped<IUserContextService, UserContextService>();
+builder.Services.AddScoped<IFinanceToolExecutor, FinanceToolExecutor>();
 builder.Services.AddScoped<IChatAssistantService, ChatAssistantService>();
 builder.Services.AddScoped<IExportImportService, ExportImportService>();
 

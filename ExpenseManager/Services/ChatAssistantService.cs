@@ -174,17 +174,24 @@ public sealed class ChatAssistantService(
     private async Task<ChatQueryResponse> BuildResponseAsync(string userId, string userMessage, CancellationToken cancellationToken)
     {
         var recentHistory = await GetRecentHistoryForContextAsync(userId, maxTurns: 10, cancellationToken);
+        try
+        {
+            var toolReply = await geminiService.GenerateReplyWithToolsAsync(userId, userMessage, recentHistory, cancellationToken);
+            if (!toolReply.Contains("API key is not configured", StringComparison.OrdinalIgnoreCase) && !toolReply.Contains("not configured", StringComparison.OrdinalIgnoreCase))
+                return new ChatQueryResponse { Reply = toolReply };
+        }
+        catch (Exception ex)
+        {
+            logger.LogDebug(ex, "Tool-based reply failed, falling back to intent path.");
+        }
+
         var intent = await geminiService.ExtractIntentAsync(userMessage, DateTime.Now, recentHistory, cancellationToken);
         if (!userMessage.Contains("account", StringComparison.OrdinalIgnoreCase))
-        {
             intent.AccountName = null;
-        }
 
         var quickResult = await ValidateIntentAndCollectDataAsync(userId, intent, cancellationToken);
         if (quickResult.earlyReply is not null)
-        {
             return quickResult.earlyReply;
-        }
 
         var data = quickResult.data!;
         try

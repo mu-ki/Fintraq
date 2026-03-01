@@ -11,6 +11,9 @@ public interface IGeminiService
     Task<string> GenerateChitReplyAsync(string userPrompt, IReadOnlyList<ChitDetailItem> chits, CancellationToken cancellationToken = default);
     /// <summary>Answer open-ended questions using full user financial context. Use when intent is "other" or for general questions.</summary>
     Task<string> GenerateOpenEndedReplyAsync(string userPrompt, string userFinancialContext, IReadOnlyList<ChatTurn>? conversationHistory, CancellationToken cancellationToken = default);
+
+    /// <summary>Generate a reply using tool calls (get_balance, get_income, get_expense, get_chit_details, get_financial_summary). Use when API key is present for MCP-like experience.</summary>
+    Task<string> GenerateReplyWithToolsAsync(string userId, string userMessage, IReadOnlyList<ChatTurn>? conversationHistory, CancellationToken cancellationToken = default);
 }
 
 public sealed class IntentExtractionResult

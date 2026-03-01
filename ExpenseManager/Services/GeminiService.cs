@@ -13,6 +13,7 @@ namespace ExpenseManager.Services;
 
 public sealed class GeminiService(
     IOptions<GeminiOptions> options,
+    IFinanceToolExecutor toolExecutor,
     ILogger<GeminiService> logger) : IGeminiService
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
@@ -353,6 +354,107 @@ Current user message: {userPrompt}
             logger.LogWarning(ex, "Open-ended reply generation failed.");
             return "I'm having trouble answering that right now. You can ask things like: balance this month, income last month, expenses by category, or chit installment status.";
         }
+    }
+
+    public async Task<string> GenerateReplyWithToolsAsync(string userId, string userMessage, IReadOnlyList<ChatTurn>? conversationHistory, CancellationToken cancellationToken = default)
+    {
+        if (!HasApiKey())
+            return "Gemini API key is not configured. Configure it in settings to use the assistant with tools.";
+        var contents = BuildInitialContents(userMessage, conversationHistory);
+        var toolsList = FinanceToolsDefinition.GetTools().ToList();
+        var config = new GenerateContentConfig
+        {
+            Temperature = 0.2f,
+            Tools = toolsList,
+            SystemInstruction = new Content
+            {
+                Role = "user",
+                Parts = new List<Part>
+                {
+                    new Part
+                    {
+                        Text = """
+                        You are a personal finance assistant. Use the provided tools to fetch the user's balance, income, expenses, chit (Chit Fund) details, or full financial summary.
+                        When the user does not specify a month or year, use the current month and year.
+                        For chit questions (e.g. "chit detail of Thiyagu", "yahoo chit", "how many installments in Thiya Mama Chit"), call get_chit_details with the chit name they mention (e.g. "Thiyagu", "yahoo", "Thiya Mama"); if no chit matches, tell them and list available chits.
+                        Reply in natural language based on the tool results. Be concise and accurate.
+                        """
+                    }
+                }
+            }
+        };
+        const int maxRounds = 5;
+        var client = GetClient();
+        for (var round = 0; round < maxRounds; round++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            GenerateContentResponse response;
+            try
+            {
+                response = await client.Models.GenerateContentAsync(
+                    model: ModelName,
+                    contents: contents,
+                    config: config,
+                    cancellationToken: cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "GenerateContentAsync (tools) failed.");
+                return "I'm having trouble connecting to the AI. Try again or use the menu options for balance, income, or expenses.";
+            }
+            if (response?.Candidates is not { Count: > 0 })
+                return "I didn't get a valid response. Please try again.";
+            var candidate = response.Candidates[0];
+            var modelContent = candidate.Content;
+            if (modelContent?.Parts is not { Count: > 0 })
+                return "I couldn't generate a reply. Try asking about your balance, income, expenses, or chits.";
+            var functionCalls = new List<(string Name, string ArgsJson, string Id)>();
+            string? textReply = null;
+            foreach (var part in modelContent.Parts)
+            {
+                if (!string.IsNullOrEmpty(part.Text))
+                    textReply = part.Text;
+                if (part.FunctionCall is { } fc)
+                {
+                    var argsJson = fc.Args is { } d ? JsonSerializer.Serialize(d) : "{}";
+                    functionCalls.Add((fc.Name ?? "", argsJson, fc.Id ?? ""));
+                }
+            }
+            if (functionCalls.Count == 0)
+                return string.IsNullOrWhiteSpace(textReply) ? "I couldn't generate a reply." : textReply.Trim();
+            contents.Add(new Content { Role = "model", Parts = modelContent.Parts });
+            var responseParts = new List<Part>();
+            foreach (var (name, argsJson, id) in functionCalls)
+            {
+                var result = await toolExecutor.ExecuteAsync(userId, name, argsJson, cancellationToken);
+                responseParts.Add(new Part
+                {
+                    FunctionResponse = new FunctionResponse
+                    {
+                        Id = id,
+                        Name = name,
+                        Response = new Dictionary<string, object> { ["result"] = result }
+                    }
+                });
+            }
+            contents.Add(new Content { Role = "user", Parts = responseParts });
+        }
+        return "I had to stop after several steps. Try a simpler question, like 'balance this month' or 'chit details of Thiyagu'.";
+    }
+
+    private static List<Content> BuildInitialContents(string userMessage, IReadOnlyList<ChatTurn>? conversationHistory)
+    {
+        var contents = new List<Content>();
+        if (conversationHistory is { Count: > 0 })
+        {
+            foreach (var turn in conversationHistory.TakeLast(10))
+            {
+                var role = string.Equals(turn.Role, "assistant", StringComparison.OrdinalIgnoreCase) ? "model" : "user";
+                contents.Add(new Content { Role = role, Parts = new List<Part> { new Part { Text = turn.Content.Trim() } } });
+            }
+        }
+        contents.Add(new Content { Role = "user", Parts = new List<Part> { new Part { Text = userMessage.Trim() } } });
+        return contents;
     }
 
     private static string StripCodeFence(string input)
