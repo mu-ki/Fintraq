@@ -13,6 +13,7 @@ public sealed class GeminiService(
     IGeminiOptionsProvider optionsProvider,
     IFinanceToolExecutor toolExecutor,
     IAiTokenUsageService tokenUsage,
+    GeminiRestToolsInvoker restToolsInvoker,
     ILogger<GeminiService> logger) : IGeminiService
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
@@ -362,95 +363,20 @@ Current user message: {userPrompt}
     {
         if (!await HasApiKeyAsync(cancellationToken))
             return "Gemini API key is not configured. Configure it in settings to use the assistant with tools.";
-        var contents = BuildInitialContents(userMessage, conversationHistory);
-        var toolsList = FinanceToolsDefinition.GetTools().ToList();
-        var config = new GenerateContentConfig
-        {
-            Temperature = 0.2f,
-            Tools = toolsList,
-            SystemInstruction = new Content
-            {
-                Role = "user",
-                Parts = new List<Part>
-                {
-                    new Part
-                    {
-                        Text = """
-                        You are a personal finance assistant. Use the provided tools to fetch the user's balance, income, expenses, chit (Chit Fund) details, or full financial summary.
-                        When the user does not specify a month or year, use the current month and year.
-                        For chit questions (e.g. "chit detail of Thiyagu", "yahoo chit", "how many installments in Thiya Mama Chit"), call get_chit_details with the chit name they mention (e.g. "Thiyagu", "yahoo", "Thiya Mama"); if no chit matches, tell them and list available chits.
-                        Reply in natural language based on the tool results. Be concise and accurate.
-                        """
-                    }
-                }
-            }
-        };
-        const int maxRounds = 5;
-        var client = await GetClientAsync(cancellationToken);
+        var apiKey = await optionsProvider.GetApiKeyAsync(cancellationToken);
         var modelName = await GetModelNameAsync(cancellationToken);
-        for (var round = 0; round < maxRounds; round++)
+        var contents = BuildInitialContents(userMessage, conversationHistory);
+        try
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            GenerateContentResponse response;
-            try
-            {
-                response = await client.Models.GenerateContentAsync(
-                    model: modelName,
-                    contents: contents,
-                    config: config,
-                    cancellationToken: cancellationToken);
-            }
-            catch (Exception ex)
-            {
-                logger.LogWarning(ex, "GenerateContentAsync (tools) failed.");
-                return "I'm having trouble connecting to the AI. Try again or use the menu options for balance, income, or expenses.";
-            }
-            var promptTokens = 0;
-            var completionTokens = 0;
-            if (response?.UsageMetadata != null)
-            {
-                promptTokens = (int)(response.UsageMetadata.PromptTokenCount ?? 0);
-                completionTokens = (int)(response.UsageMetadata.CandidatesTokenCount ?? response.UsageMetadata.TotalTokenCount ?? 0);
-            }
+            var (reply, promptTokens, completionTokens) = await restToolsInvoker.GenerateWithToolsAsync(apiKey, modelName, contents, toolExecutor, userId, cancellationToken);
             try { await tokenUsage.RecordAsync(userId, modelName, promptTokens, completionTokens, cancellationToken); } catch { /* best effort */ }
-            if (response?.Candidates is not { Count: > 0 })
-                return "I didn't get a valid response. Please try again.";
-            var candidate = response.Candidates[0];
-            var modelContent = candidate.Content;
-            if (modelContent?.Parts is not { Count: > 0 })
-                return "I couldn't generate a reply. Try asking about your balance, income, expenses, or chits.";
-            var functionCalls = new List<(string Name, string ArgsJson, string Id)>();
-            string? textReply = null;
-            foreach (var part in modelContent.Parts)
-            {
-                if (!string.IsNullOrEmpty(part.Text))
-                    textReply = part.Text;
-                if (part.FunctionCall is { } fc)
-                {
-                    var argsJson = fc.Args is { } d ? JsonSerializer.Serialize(d) : "{}";
-                    functionCalls.Add((fc.Name ?? "", argsJson, fc.Id ?? ""));
-                }
-            }
-            if (functionCalls.Count == 0)
-                return string.IsNullOrWhiteSpace(textReply) ? "I couldn't generate a reply." : textReply.Trim();
-            contents.Add(new Content { Role = "model", Parts = modelContent.Parts });
-            var responseParts = new List<Part>();
-            foreach (var (name, argsJson, id) in functionCalls)
-            {
-                var result = await toolExecutor.ExecuteAsync(userId, name, argsJson, cancellationToken);
-                responseParts.Add(new Part
-                {
-                    FunctionResponse = new FunctionResponse
-                    {
-                        Id = id,
-                        Name = name,
-                        Response = new Dictionary<string, object> { ["result"] = result }
-                    }
-                });
-            }
-            contents.Add(new Content { Role = "user", Parts = responseParts });
+            return reply;
         }
-        return "I had to stop after several steps. Try a simpler question, like 'balance this month' or 'chit details of Thiyagu'.";
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "GenerateWithToolsAsync (REST) failed.");
+            return "I'm having trouble connecting to the AI. Try again or use the menu options for balance, income, or expenses.";
+        }
     }
 
     private static List<Content> BuildInitialContents(string userMessage, IReadOnlyList<ChatTurn>? conversationHistory)

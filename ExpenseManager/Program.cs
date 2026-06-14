@@ -27,6 +27,7 @@ builder.Services.Configure<GeminiOptions>(builder.Configuration.GetSection("Gemi
 builder.Services.AddHttpClient();
 builder.Services.AddScoped<IGeminiOptionsProvider, GeminiOptionsProvider>();
 builder.Services.AddScoped<IGeminiModelsService, GeminiModelsService>();
+builder.Services.AddScoped<GeminiRestToolsInvoker>();
 builder.Services.AddScoped<IGeminiService, GeminiService>();
 builder.Services.AddScoped<IFinancialInsightsService, FinancialInsightsService>();
 builder.Services.AddScoped<IUserContextService, UserContextService>();
