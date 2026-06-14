@@ -3,6 +3,7 @@ using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using ExpenseManager.Models.Ai;
 using ExpenseManager.Models.Chat;
 using Google.GenAI;
 using Google.GenAI.Types;
@@ -10,12 +11,13 @@ using Google.GenAI.Types;
 namespace ExpenseManager.Services;
 
 public sealed class GeminiService(
-    IGeminiOptionsProvider optionsProvider,
+    IAiOptionsProvider optionsProvider,
     IFinanceToolExecutor toolExecutor,
     IAiTokenUsageService tokenUsage,
     GeminiRestToolsInvoker restToolsInvoker,
-    ILogger<GeminiService> logger) : IGeminiService
+    ILogger<GeminiService> logger) : IAiProviderBackend
 {
+    public AiProvider Provider => AiProvider.Gemini;
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
     {
         PropertyNameCaseInsensitive = true
@@ -23,7 +25,7 @@ public sealed class GeminiService(
 
     private async Task<Client> GetClientAsync(CancellationToken cancellationToken)
     {
-        var apiKey = await optionsProvider.GetApiKeyAsync(cancellationToken);
+        var apiKey = await optionsProvider.GetApiKeyForProviderAsync(AiProvider.Gemini, cancellationToken);
         if (string.IsNullOrWhiteSpace(apiKey))
             throw new InvalidOperationException("Gemini API key is not configured.");
         return new Client(apiKey: apiKey.Trim());
@@ -31,12 +33,12 @@ public sealed class GeminiService(
 
     private async Task<string> GetModelNameAsync(CancellationToken cancellationToken)
     {
-        var model = await optionsProvider.GetModelAsync(cancellationToken);
+        var model = await optionsProvider.GetModelForProviderAsync(AiProvider.Gemini, cancellationToken);
         return string.IsNullOrWhiteSpace(model) ? "gemini-2.0-flash" : model.Trim();
     }
 
     private async Task<bool> HasApiKeyAsync(CancellationToken cancellationToken)
-        => !string.IsNullOrWhiteSpace(await optionsProvider.GetApiKeyAsync(cancellationToken));
+        => !string.IsNullOrWhiteSpace(await optionsProvider.GetApiKeyForProviderAsync(AiProvider.Gemini, cancellationToken));
 
     private static string? GetTextFromResponse(GenerateContentResponse? response)
     {
@@ -59,16 +61,11 @@ public sealed class GeminiService(
         return GetTextFromResponse(response) ?? string.Empty;
     }
 
-    public Task<IntentExtractionResult> ExtractIntentAsync(string userPrompt, DateTime currentDate, CancellationToken cancellationToken)
-    {
-        return ExtractIntentAsync(userPrompt, currentDate, null, cancellationToken);
-    }
-
     public async Task<IntentExtractionResult> ExtractIntentAsync(string userPrompt, DateTime currentDate, IReadOnlyList<ChatTurn>? conversationContext, CancellationToken cancellationToken)
     {
         if (!await HasApiKeyAsync(cancellationToken))
         {
-            return BuildHeuristicIntent(userPrompt, currentDate);
+            return AiSharedHelpers.BuildHeuristicIntent(userPrompt, currentDate);
         }
 
         var contextBlock = "";
@@ -115,17 +112,17 @@ Current user message: {userPrompt}
                 ResponseMimeType = "application/json"
             };
             var raw = await GenerateContentAsync(prompt, config, cancellationToken);
-            var cleaned = StripCodeFence(raw);
+            var cleaned = AiSharedHelpers.StripCodeFence(raw);
             var parsed = JsonSerializer.Deserialize<IntentExtractionResult>(cleaned, JsonOptions);
             if (parsed is null)
             {
-                return BuildHeuristicIntent(userPrompt, currentDate);
+                return AiSharedHelpers.BuildHeuristicIntent(userPrompt, currentDate);
             }
 
-            parsed.Intent = NormalizeIntent(parsed.Intent);
+            parsed.Intent = AiSharedHelpers.NormalizeIntent(parsed.Intent);
             if (parsed.Intent is "balance" or "income" or "expense" or "chit")
             {
-                ApplyClarificationRules(parsed, currentDate);
+                AiSharedHelpers.ApplyClarificationRules(parsed, currentDate);
             }
 
             return parsed;
@@ -133,7 +130,7 @@ Current user message: {userPrompt}
         catch (Exception ex)
         {
             logger.LogWarning(ex, "Gemini intent parse failed. Falling back to heuristic parser.");
-            return BuildHeuristicIntent(userPrompt, currentDate);
+            return AiSharedHelpers.BuildHeuristicIntent(userPrompt, currentDate);
         }
     }
 
@@ -344,7 +341,7 @@ Current user message: {userPrompt}
             """;
 
         if (!await HasApiKeyAsync(cancellationToken))
-            return "I can answer questions about your balance, income, expenses, chits, and recent transactions. Enable the Gemini API key in settings for full natural language answers.";
+            return "I can answer questions about your balance, income, expenses, chits, and recent transactions. Enable an AI provider API key in Admin settings for full natural language answers.";
 
         try
         {
@@ -362,8 +359,8 @@ Current user message: {userPrompt}
     public async Task<string> GenerateReplyWithToolsAsync(string userId, string userMessage, IReadOnlyList<ChatTurn>? conversationHistory, CancellationToken cancellationToken = default)
     {
         if (!await HasApiKeyAsync(cancellationToken))
-            return "Gemini API key is not configured. Configure it in settings to use the assistant with tools.";
-        var apiKey = await optionsProvider.GetApiKeyAsync(cancellationToken);
+            return "AI API key is not configured for the active provider. Configure it in Admin → AI settings.";
+        var apiKey = await optionsProvider.GetApiKeyForProviderAsync(AiProvider.Gemini, cancellationToken);
         var modelName = await GetModelNameAsync(cancellationToken);
         var contents = BuildInitialContents(userMessage, conversationHistory);
         try

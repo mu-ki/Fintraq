@@ -41,6 +41,9 @@
                             <li class="nav-item">
                                 <a class="nav-link" asp-area="" asp-controller="Data" asp-action="Index">Export / Import</a>
                             </li>
+                            <li class="nav-item">
+                                <a class="nav-link" asp-area="" asp-controller="MessagingSettings" asp-action="Index">Messaging</a>
+                            </li>
                             @if (User.IsInRole("Admin"))
                             {
                                 <li class="nav-item">
@@ -128,6 +131,8 @@
 
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="~/js/chat-markdown.js" asp-append-version="true"></script>
+    <script src="~/js/local-datetime.js" asp-append-version="true"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>
     @await RenderSectionAsync("Scripts", required: false)
 </body>

@@ -523,6 +523,67 @@ h1, h2, h3, h4, h5 {
   background: var(--surface-alt);
 }
 
+.chat-bubble.chat-markdown,
+.fintraq-chat-bubble.chat-markdown {
+  white-space: normal;
+}
+
+.chat-markdown .chat-md-heading {
+  font-size: 0.95rem;
+  font-weight: 700;
+  margin: 0.35rem 0 0.5rem;
+  color: var(--text);
+}
+
+.chat-markdown .chat-md-p {
+  margin: 0 0 0.55rem;
+}
+
+.chat-markdown .chat-md-p:last-child {
+  margin-bottom: 0;
+}
+
+.chat-markdown .chat-md-list {
+  margin: 0.25rem 0 0.55rem 1.1rem;
+  padding: 0;
+}
+
+.chat-markdown .chat-md-list li {
+  margin-bottom: 0.25rem;
+}
+
+.chat-markdown .chat-md-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+  margin: 0.35rem 0 0.65rem;
+}
+
+.chat-markdown .chat-md-table th,
+.chat-markdown .chat-md-table td {
+  border: 1px solid var(--line);
+  padding: 0.35rem 0.5rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+.chat-markdown .chat-md-table th {
+  background: rgba(47, 111, 99, 0.08);
+  font-weight: 600;
+}
+
+.chat-markdown .chat-md-table tr:nth-child(even) td {
+  background: rgba(255, 255, 255, 0.45);
+}
+
+.fintraq-chat-bubble.chat-markdown .chat-md-table th {
+  background: rgba(47, 111, 99, 0.12);
+}
+
+.fintraq-chat-bubble.chat-markdown .chat-md-table tr:nth-child(even) td {
+  background: rgba(255, 255, 255, 0.6);
+}
+
 .chat-bubble.chat-data-card {
   background: linear-gradient(135deg, rgba(47, 111, 99, 0.08), rgba(63, 124, 172, 0.06));
   border-color: var(--brand-2);
@@ -732,6 +793,10 @@ h1, h2, h3, h4, h5 {
   background: #f1f6f3;
   padding: 0.62rem 0.76rem;
   white-space: pre-wrap;
+}
+
+.fintraq-chat-bubble.chat-markdown {
+  white-space: normal;
 }
 
 .fintraq-chat-bubble.user {

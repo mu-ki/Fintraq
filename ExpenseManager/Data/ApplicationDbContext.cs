@@ -1,5 +1,6 @@
 using ExpenseManager.Models;
 using ExpenseManager.Models.Chat;
+using ExpenseManager.Models.Messaging;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
@@ -13,6 +14,8 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<ChatMessage> ChatMessages => Set<ChatMessage>();
     public DbSet<AdminSetting> AdminSettings => Set<AdminSetting>();
     public DbSet<AiTokenUsage> AiTokenUsages => Set<AiTokenUsage>();
+    public DbSet<MessagingChannelLink> MessagingChannelLinks => Set<MessagingChannelLink>();
+    public DbSet<MessagingLinkCode> MessagingLinkCodes => Set<MessagingLinkCode>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -64,6 +67,16 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
 
         builder.Entity<AiTokenUsage>()
             .HasIndex(u => new { u.UserId, u.CalledAt });
+
+        builder.Entity<MessagingChannelLink>()
+            .HasIndex(l => new { l.Channel, l.ExternalId })
+            .IsUnique();
+
+        builder.Entity<MessagingChannelLink>()
+            .HasIndex(l => new { l.UserId, l.Channel });
+
+        builder.Entity<MessagingLinkCode>()
+            .HasIndex(c => c.CodeHash);
     }
 
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)

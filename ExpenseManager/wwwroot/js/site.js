@@ -18,7 +18,12 @@
     const renderMessage = (text, role) => {
         const bubble = document.createElement("div");
         bubble.className = `fintraq-chat-bubble ${role}`;
-        bubble.textContent = text;
+        if (role === "assistant" && typeof window.formatChatMarkdown === "function") {
+            bubble.classList.add("chat-markdown");
+            bubble.innerHTML = window.formatChatMarkdown(text);
+        } else {
+            bubble.textContent = text;
+        }
         log.appendChild(bubble);
         log.scrollTop = log.scrollHeight;
         return bubble;

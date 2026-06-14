@@ -1,0 +1,124 @@
+@model IReadOnlyList<ExpenseManager.Models.Messaging.MessagingChannelLink>
+@{
+    ViewData["Title"] = "Messaging Settings";
+    var linkCode = TempData["LinkCode"] as string;
+    var linkCodeExpiresAtUtc = TempData["LinkCodeExpiresAtUtc"] as string;
+    var botUsername = ViewBag.TelegramBotUsername as string;
+}
+
+<section class="page-header">
+    <div>
+        <p class="eyebrow">Telegram &amp; WhatsApp</p>
+        <h1>Messaging Settings</h1>
+        <p class="subtitle">Link Telegram or WhatsApp to manage Fintraq from chat. Website and chat share the same data.</p>
+    </div>
+</section>
+
+@if (linkCode is not null)
+{
+    <div class="alert alert-success" role="alert">
+        <strong>Link code:</strong> <code>@linkCode</code>
+        @if (linkCodeExpiresAtUtc is not null)
+        {
+            <span class="ms-2">Expires <time datetime="@linkCodeExpiresAtUtc" data-utc="@linkCodeExpiresAtUtc"></time></span>
+        }
+        <div class="mt-2 small">
+            Send to your bot: <code>/link @linkCode</code>
+            @if (!string.IsNullOrWhiteSpace(botUsername))
+            {
+                <span> or open <a href="https://t.me/@botUsername?start=link_@linkCode" target="_blank" rel="noopener noreferrer">t.me/@botUsername</a></span>
+            }
+        </div>
+    </div>
+}
+
+@if (TempData["Revoked"] is not null)
+{
+    <div class="alert alert-info alert-dismissible fade show" role="alert">
+        Messaging link revoked.
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+
+<div class="row g-4">
+    <div class="col-lg-6">
+        <div class="panel h-100">
+            <h2 class="h5 mb-3">Generate link code</h2>
+            <p class="text-body-secondary small mb-3">
+                Generate a one-time code, then send <code>/link CODE</code> to your Telegram or WhatsApp bot within 10 minutes.
+            </p>
+            <form asp-action="GenerateCode" method="post">
+                @Html.AntiForgeryToken()
+                <button type="submit" class="btn btn-primary">Generate new code</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="col-lg-6">
+        <div class="panel h-100">
+            <h2 class="h5 mb-3">Quick commands</h2>
+            <ul class="small text-body-secondary mb-0">
+                <li><code>balance</code> — current month balance</li>
+                <li><code>due</code> — pending due items</li>
+                <li><code>summary</code> — month income/expense/net</li>
+                <li><code>spent 500 food hdfc</code> — log expense</li>
+                <li><code>mark netflix done</code> — mark due item complete</li>
+                <li>Or ask naturally: "What did I spend on food this month?"</li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<div class="panel mt-4">
+    <h2 class="h5 mb-3">Linked channels</h2>
+    @if (Model.Count == 0)
+    {
+        <p class="text-body-secondary mb-0">No messaging channels linked yet.</p>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>Channel</th>
+                        <th>External ID</th>
+                        <th>Linked</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var link in Model)
+                    {
+                        <tr>
+                            <td>@link.Channel</td>
+                            <td><code>@link.ExternalId</code></td>
+                            <td><time datetime="@link.LinkedAt.ToUtcIsoString()" data-utc="@link.LinkedAt.ToUtcIsoString()"></time></td>
+                            <td class="text-end">
+                                <form asp-action="Revoke" asp-route-id="@link.Id" method="post" class="d-inline">
+                                    @Html.AntiForgeryToken()
+                                    <button type="submit" class="btn btn-sm btn-outline-danger">Revoke</button>
+                                </form>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+<section class="panel mt-4">
+    <h2 class="h5 mb-3">Setup</h2>
+    <ol class="small text-body-secondary mb-0">
+        @if (ViewBag.TelegramConfigured == true)
+        {
+            <li>Telegram bot is configured by your admin.</li>
+        }
+        else
+        {
+            <li>Ask an admin to configure the Telegram bot under <strong>Admin → Telegram</strong>.</li>
+        }
+        <li>Generate a link code above and send <code>/link CODE</code> to the bot.</li>
+    </ol>
+</section>

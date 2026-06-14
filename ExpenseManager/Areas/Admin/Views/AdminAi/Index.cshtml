@@ -1,37 +1,67 @@
 @model AdminAiViewModel
+@using ExpenseManager.Models.Ai
+@using System.Text.Json
 @{
     ViewData["Title"] = "AI settings";
+    var providerJson = JsonSerializer.Serialize(
+        Model.ProviderSettings.ToDictionary(
+            kvp => kvp.Key.ToString(),
+            kvp => new
+            {
+                hasStoredKey = !string.IsNullOrEmpty(kvp.Value.ApiKeyOverride),
+                apiKeyFromConfig = kvp.Value.ApiKeyFromConfig,
+                model = kvp.Value.Model,
+                availableModels = kvp.Value.AvailableModels,
+                helpText = kvp.Value.HelpText
+            }));
 }
 <section class="page-header">
     <div>
         <p class="eyebrow">Admin</p>
         <h1>AI settings</h1>
-        <p class="subtitle mb-0">API key, model, and token usage.</p>
+        <p class="subtitle mb-0">Choose provider (Gemini, Anthropic, Cursor), API key, model, and view token usage.</p>
     </div>
 </section>
 
 <div class="panel mb-4">
     <p class="eyebrow">Configuration</p>
-    <h2 class="h6 mb-3">API key &amp; model</h2>
-    <form asp-action="SaveSettings" method="post">
+    <h2 class="h6 mb-3">Provider, API key &amp; model</h2>
+    <form asp-action="SaveSettings" method="post" id="adminAiForm">
         @Html.AntiForgeryToken()
         <div class="mb-3">
-            <label class="form-label">API key (override)</label>
-            <input type="password" name="apiKeyOverride" class="form-control" value="@Model.ApiKeyOverride" placeholder="Leave blank to keep current" autocomplete="off" />
-            @if (!string.IsNullOrEmpty(Model.ApiKeyFromConfig))
-            {
-                <div class="form-text">@Model.ApiKeyFromConfig from appsettings</div>
-            }
+            <label class="form-label" for="providerSelect">Active provider</label>
+            <select name="provider" id="providerSelect" class="form-select">
+                @foreach (var p in Enum.GetValues<AiProvider>())
+                {
+                    <option value="@p" selected="@(p == Model.Provider)">@p</option>
+                }
+            </select>
+            <div class="form-text">Chat, messaging bots, and AI assistant use the selected provider.</div>
         </div>
+
         <div class="mb-3">
-            <label class="form-label">Model</label>
-            <select name="model" class="form-select">
+            <label class="form-label" for="apiKeyOverride" id="apiKeyLabel">@Model.Provider API key (override)</label>
+            <input type="password"
+                   name="apiKeyOverride"
+                   id="apiKeyOverride"
+                   class="form-control"
+                   value=""
+                   placeholder="Leave blank to keep current"
+                   autocomplete="off" />
+            <div class="form-text" id="apiKeyFromConfigHint" @(string.IsNullOrEmpty(Model.ApiKeyFromConfig) ? "hidden" : "")>
+                <span id="apiKeyFromConfigText">@Model.ApiKeyFromConfig</span> from appsettings
+            </div>
+            <div class="form-text" id="apiKeyHelpText">@Model.ProviderSettings[Model.Provider].HelpText</div>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label" for="modelSelect">Model</label>
+            <select name="model" id="modelSelect" class="form-select">
                 @foreach (var m in Model.AvailableModels)
                 {
                     <option value="@m" selected="@(m == Model.Model)">@m</option>
                 }
             </select>
-            <div class="form-text">List loaded from Google when an API key is set.</div>
         </div>
         <button type="submit" class="btn btn-primary">Save</button>
     </form>
@@ -84,3 +114,53 @@
         }
     </div>
 </div>
+
+@section Scripts {
+    <script>
+        (function () {
+            const providerSettings = @Html.Raw(providerJson);
+            const providerSelect = document.getElementById('providerSelect');
+            const apiKeyLabel = document.getElementById('apiKeyLabel');
+            const apiKeyInput = document.getElementById('apiKeyOverride');
+            const apiKeyFromConfigHint = document.getElementById('apiKeyFromConfigHint');
+            const apiKeyFromConfigText = document.getElementById('apiKeyFromConfigText');
+            const apiKeyHelpText = document.getElementById('apiKeyHelpText');
+            const modelSelect = document.getElementById('modelSelect');
+
+            function applyProvider(provider) {
+                const settings = providerSettings[provider];
+                if (!settings) return;
+
+                apiKeyLabel.textContent = provider + ' API key (override)';
+                apiKeyInput.value = '';
+                apiKeyInput.placeholder = settings.hasStoredKey
+                    ? 'Leave blank to keep current key'
+                    : 'Enter API key';
+
+                if (settings.apiKeyFromConfig) {
+                    apiKeyFromConfigText.textContent = settings.apiKeyFromConfig;
+                    apiKeyFromConfigHint.hidden = false;
+                } else {
+                    apiKeyFromConfigHint.hidden = true;
+                }
+
+                apiKeyHelpText.textContent = settings.helpText || '';
+
+                modelSelect.innerHTML = '';
+                (settings.availableModels || []).forEach(function (modelName) {
+                    const option = document.createElement('option');
+                    option.value = modelName;
+                    option.textContent = modelName;
+                    if (modelName === settings.model) {
+                        option.selected = true;
+                    }
+                    modelSelect.appendChild(option);
+                });
+            }
+
+            providerSelect.addEventListener('change', function () {
+                applyProvider(providerSelect.value);
+            });
+        })();
+    </script>
+}

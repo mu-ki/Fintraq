@@ -38,6 +38,9 @@
                                 <a class="nav-link @(ViewContext.RouteData.Values["controller"]?.ToString() == "AdminAi" ? "active" : "")" asp-area="Admin" asp-controller="AdminAi" asp-action="Index">AI settings</a>
                             </li>
                             <li class="nav-item">
+                                <a class="nav-link @(ViewContext.RouteData.Values["controller"]?.ToString() == "AdminTelegram" ? "active" : "")" asp-area="Admin" asp-controller="AdminTelegram" asp-action="Index">Telegram</a>
+                            </li>
+                            <li class="nav-item">
                                 <a class="nav-link @(ViewContext.RouteData.Values["controller"]?.ToString() == "AdminLogs" ? "active" : "")" asp-area="Admin" asp-controller="AdminLogs" asp-action="Index">Logs</a>
                             </li>
                         </ul>

@@ -35,6 +35,7 @@
 </section>
 
 @section Scripts {
+    <script src="~/js/chat-markdown.js" asp-append-version="true"></script>
     <script>
         (() => {
             const form = document.getElementById('chatForm');
@@ -46,7 +47,12 @@
             const append = (text, role) => {
                 const bubble = document.createElement('div');
                 bubble.className = `chat-bubble ${role}`;
-                bubble.textContent = text;
+                if (role === 'assistant' && typeof window.formatChatMarkdown === 'function') {
+                    bubble.classList.add('chat-markdown');
+                    bubble.innerHTML = window.formatChatMarkdown(text);
+                } else {
+                    bubble.textContent = text;
+                }
                 log.appendChild(bubble);
                 scrollToBottom();
             };
