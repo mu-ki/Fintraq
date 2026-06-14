@@ -22,14 +22,14 @@
         <header class="app-header">
             <nav class="navbar navbar-expand-lg app-nav admin-nav">
                 <div class="container">
-                    <a class="navbar-brand app-brand" asp-area="Admin" asp-controller="Admin" asp-action="Index">Fintraq Admin</a>
+                    <a class="navbar-brand app-brand" asp-area="Admin" asp-controller="Dashboard" asp-action="Index">Fintraq Admin</a>
                     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#adminNavbar" aria-controls="adminNavbar" aria-expanded="false" aria-label="Toggle navigation">
                         <span class="navbar-toggler-icon"></span>
                     </button>
                     <div class="collapse navbar-collapse" id="adminNavbar">
                         <ul class="navbar-nav app-links me-auto">
                             <li class="nav-item">
-                                <a class="nav-link @(ViewContext.RouteData.Values["controller"]?.ToString() == "Admin" && ViewContext.RouteData.Values["action"]?.ToString() == "Index" ? "active" : "")" asp-area="Admin" asp-controller="Admin" asp-action="Index">Dashboard</a>
+                                <a class="nav-link @(ViewContext.RouteData.Values["controller"]?.ToString() == "Dashboard" ? "active" : "")" asp-area="Admin" asp-controller="Dashboard" asp-action="Index">Dashboard</a>
                             </li>
                             <li class="nav-item">
                                 <a class="nav-link @(ViewContext.RouteData.Values["controller"]?.ToString() == "AdminUsers" ? "active" : "")" asp-area="Admin" asp-controller="AdminUsers" asp-action="Index">User management</a>

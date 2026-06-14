@@ -8,7 +8,12 @@ public sealed class TelegramBotClient(
     ITelegramOptionsProvider optionsProvider,
     ILogger<TelegramBotClient> logger) : ITelegramBotClient
 {
-    public async Task SendTextMessageAsync(string chatId, string text, CancellationToken cancellationToken = default)
+    public async Task SendTextMessageAsync(
+        string chatId,
+        string text,
+        string? parseMode = null,
+        string? plainTextFallback = null,
+        CancellationToken cancellationToken = default)
     {
         var settings = await optionsProvider.GetSettingsAsync(cancellationToken);
         if (!settings.IsConfigured)
@@ -19,19 +24,51 @@ public sealed class TelegramBotClient(
 
         var client = httpClientFactory.CreateClient();
         var url = $"https://api.telegram.org/bot{settings.BotToken}/sendMessage";
-        var payload = new
+
+        if (!string.IsNullOrWhiteSpace(parseMode))
         {
-            chat_id = chatId,
-            text,
-            disable_web_page_preview = true
+            var sent = await TrySendAsync(client, url, chatId, text, parseMode, cancellationToken);
+            if (sent)
+            {
+                return;
+            }
+
+            logger.LogWarning("Telegram HTML message failed; retrying as plain text.");
+        }
+
+        var fallback = plainTextFallback ?? text;
+        await TrySendAsync(client, url, chatId, fallback, parseMode: null, cancellationToken);
+    }
+
+    private async Task<bool> TrySendAsync(
+        HttpClient client,
+        string url,
+        string chatId,
+        string text,
+        string? parseMode,
+        CancellationToken cancellationToken)
+    {
+        var payload = new Dictionary<string, object?>
+        {
+            ["chat_id"] = chatId,
+            ["text"] = text,
+            ["disable_web_page_preview"] = true
         };
 
-        using var response = await client.PostAsJsonAsync(url, payload, cancellationToken);
-        if (!response.IsSuccessStatusCode)
+        if (!string.IsNullOrWhiteSpace(parseMode))
         {
-            var body = await response.Content.ReadAsStringAsync(cancellationToken);
-            logger.LogWarning("Telegram sendMessage failed: {Status} {Body}", response.StatusCode, body);
+            payload["parse_mode"] = parseMode;
         }
+
+        using var response = await client.PostAsJsonAsync(url, payload, cancellationToken);
+        if (response.IsSuccessStatusCode)
+        {
+            return true;
+        }
+
+        var body = await response.Content.ReadAsStringAsync(cancellationToken);
+        logger.LogWarning("Telegram sendMessage failed: {Status} {Body}", response.StatusCode, body);
+        return false;
     }
 
     internal sealed class TelegramUpdate

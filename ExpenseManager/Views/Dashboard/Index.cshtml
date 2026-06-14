@@ -74,7 +74,7 @@
                 <p class="empty-copy">No bank accounts yet. Add one to start tracking rolling balances.</p>
             }
             <p class="subtitle mb-2">This year trend by month (@Model.Year).</p>
-            <div class="chart-wrap short">
+            <div class="chart-wrap account-trend">
                 <canvas id="accountChart"></canvas>
             </div>
         </div>
@@ -250,8 +250,64 @@
 </section>
 
 @section Scripts {
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7"></script>
     <script>
+        const formatChartAmount = (value) => {
+            if (value == null || Number.isNaN(value)) {
+                return '';
+            }
+            return new Intl.NumberFormat('en-IN', { maximumFractionDigits: 0 }).format(value);
+        };
+
+        const accountValueLabelsPlugin = {
+            id: 'accountValueLabels',
+            afterDatasetsDraw(chart) {
+                if (chart.canvas.id !== 'accountChart') {
+                    return;
+                }
+
+                const { ctx } = chart;
+                const isMobile = window.innerWidth < 576;
+                const fontSize = isMobile ? 8 : 10;
+                const stackGap = isMobile ? 11 : 14;
+
+                chart.data.datasets.forEach((dataset, datasetIndex) => {
+                    const meta = chart.getDatasetMeta(datasetIndex);
+                    if (meta.hidden) {
+                        return;
+                    }
+
+                    meta.data.forEach((point, index) => {
+                        const value = dataset.data[index];
+                        if (value == null || Number.isNaN(value)) {
+                            return;
+                        }
+
+                        const { x, y } = point.getProps(['x', 'y'], true);
+                        const label = formatChartAmount(value);
+                        const above = value >= 0;
+                        const offsetY = above
+                            ? -(8 + datasetIndex * stackGap)
+                            : (14 + datasetIndex * stackGap);
+
+                        ctx.save();
+                        ctx.font = `600 ${fontSize}px Manrope, sans-serif`;
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.lineWidth = 3;
+                        ctx.lineJoin = 'round';
+                        ctx.strokeStyle = 'rgba(255, 255, 255, 0.95)';
+                        ctx.strokeText(label, x, y + offsetY);
+                        ctx.fillStyle = dataset.borderColor || '#1f2937';
+                        ctx.fillText(label, x, y + offsetY);
+                        ctx.restore();
+                    });
+                });
+            }
+        };
+
+        Chart.register(accountValueLabelsPlugin);
+
         const income = @Model.TotalIncome.ToString(System.Globalization.CultureInfo.InvariantCulture);
         const expense = @Model.TotalExpense.ToString(System.Globalization.CultureInfo.InvariantCulture);
         const incomeLabels = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(incomeCategories.Select(c => c.CategoryName)));
@@ -291,6 +347,8 @@
             options: { plugins: { legend: { position: 'bottom' } }, maintainAspectRatio: false }
         });
 
+        const accountSeriesCount = yearlyAccountBalances.length;
+
         new Chart(document.getElementById('accountChart'), {
             type: 'line',
             data: {
@@ -303,16 +361,48 @@
                         data: series.monthlyBalances,
                         borderColor: color,
                         backgroundColor: color,
-                        pointRadius: 3,
-                        pointHoverRadius: 5,
+                        pointRadius: 4,
+                        pointHoverRadius: 6,
+                        borderWidth: 2,
                         tension: 0.25
                     };
                 })
             },
             options: {
-                plugins: { legend: { display: true, position: 'bottom' } },
+                plugins: {
+                    legend: { display: true, position: 'bottom' },
+                    tooltip: {
+                        enabled: true,
+                        callbacks: {
+                            label: (ctx) => `${ctx.dataset.label}: ${formatChartAmount(ctx.parsed.y)}`
+                        }
+                    }
+                },
                 maintainAspectRatio: false,
-                scales: { x: { grid: { display: false } }, y: { beginAtZero: true } }
+                layout: {
+                    padding: {
+                        top: 24 + accountSeriesCount * 16,
+                        right: 12,
+                        left: 8,
+                        bottom: 8
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: { display: false },
+                        ticks: {
+                            maxRotation: window.innerWidth < 576 ? 45 : 0,
+                            autoSkip: false,
+                            font: { size: window.innerWidth < 576 ? 10 : 12 }
+                        }
+                    },
+                    y: {
+                        beginAtZero: false,
+                        ticks: {
+                            callback: (value) => formatChartAmount(value)
+                        }
+                    }
+                }
             }
         });
     </script>

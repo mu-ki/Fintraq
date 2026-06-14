@@ -255,11 +255,16 @@ public sealed partial class MessagingOrchestrator(
         var formatted = MessagingReplyFormatter.Format(channel, text);
         if (channel == MessagingChannel.Telegram)
         {
-            await telegramBotClient.SendTextMessageAsync(externalId, formatted, cancellationToken);
+            await telegramBotClient.SendTextMessageAsync(
+                externalId,
+                formatted.Text,
+                formatted.ParseMode,
+                formatted.PlainFallback,
+                cancellationToken);
         }
         else
         {
-            await whatsAppCloudClient.SendTextMessageAsync(externalId, formatted, cancellationToken);
+            await whatsAppCloudClient.SendTextMessageAsync(externalId, formatted.Text, cancellationToken);
         }
     }
 

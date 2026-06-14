@@ -5,7 +5,8 @@ namespace ExpenseManager.Areas.Admin.Controllers;
 
 [Area("Admin")]
 [Authorize(Roles = Data.SeedData.AdminRoleName)]
-public class AdminController : Controller
+public sealed class AdminController : Controller
 {
-    public IActionResult Index() => View();
+    public IActionResult Index() =>
+        RedirectToAction(nameof(DashboardController.Index), "Dashboard", new { area = "Admin" });
 }

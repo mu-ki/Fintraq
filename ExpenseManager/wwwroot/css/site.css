@@ -306,6 +306,17 @@ h1, h2, h3, h4, h5 {
   margin-top: 1rem;
 }
 
+.chart-wrap.account-trend {
+  min-height: 380px;
+  margin-top: 1rem;
+}
+
+@media (max-width: 575.98px) {
+  .chart-wrap.account-trend {
+    min-height: 460px;
+  }
+}
+
 .chart-wrap.donut {
   min-height: 320px;
 }
