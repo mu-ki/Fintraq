@@ -1,0 +1,96 @@
+@model AdminWhatsAppViewModel
+@{
+    ViewData["Title"] = "WhatsApp settings";
+}
+<section class="page-header">
+    <div>
+        <p class="eyebrow">Admin</p>
+        <h1>WhatsApp Cloud API settings</h1>
+        <p class="subtitle mb-0">Configure Meta WhatsApp credentials and webhook details. Users link accounts from Messaging in the main app.</p>
+    </div>
+</section>
+
+<div class="panel mb-4">
+    <p class="eyebrow">Configuration</p>
+    <h2 class="h6 mb-3">API credentials</h2>
+    <form asp-action="SaveSettings" method="post">
+        @Html.AntiForgeryToken()
+        <div class="mb-3">
+            <label class="form-label">Access token (override)</label>
+            <input type="password" name="accessTokenOverride" class="form-control" placeholder="Leave blank to keep current" autocomplete="off" />
+            @if (!string.IsNullOrEmpty(Model.AccessTokenFromConfig))
+            {
+                <div class="form-text">@Model.AccessTokenFromConfig from appsettings / user secrets</div>
+            }
+            <div class="form-text">Permanent token from <a href="https://developers.facebook.com/" target="_blank" rel="noopener noreferrer">Meta Developer Console</a>.</div>
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Phone number ID</label>
+            <input type="text" name="phoneNumberIdOverride" class="form-control" value="@(string.IsNullOrEmpty(Model.PhoneNumberIdOverride) ? Model.PhoneNumberIdFromConfig : Model.PhoneNumberIdOverride)" placeholder="WhatsApp phone number ID" />
+            <div class="form-text">Found under WhatsApp → API Setup in your Meta app.</div>
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Webhook verify token</label>
+            <input type="password" name="verifyTokenOverride" class="form-control" value="@Model.VerifyTokenOverride" placeholder="Random secret string" autocomplete="off" />
+            @if (!string.IsNullOrEmpty(Model.VerifyTokenFromConfig))
+            {
+                <div class="form-text">@Model.VerifyTokenFromConfig from appsettings</div>
+            }
+            <div class="form-text">Must match the verify token you enter in Meta when subscribing to webhooks.</div>
+        </div>
+        <div class="mb-3">
+            <label class="form-label">App secret</label>
+            <input type="password" name="appSecretOverride" class="form-control" placeholder="Leave blank to keep current" autocomplete="off" />
+            @if (!string.IsNullOrEmpty(Model.AppSecretFromConfig))
+            {
+                <div class="form-text">@Model.AppSecretFromConfig from appsettings</div>
+            }
+            <div class="form-text">Used to validate <code>X-Hub-Signature-256</code> on incoming webhook POST requests.</div>
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Webhook URL (reference)</label>
+            <input type="url" name="webhookUrlOverride" class="form-control" value="@(string.IsNullOrEmpty(Model.WebhookUrlOverride) ? Model.EffectiveWebhookUrl : Model.WebhookUrlOverride)" placeholder="https://your-domain/api/webhooks/whatsapp" />
+            @if (!string.IsNullOrEmpty(Model.WebhookUrlFromConfig))
+            {
+                <div class="form-text">appsettings default: @Model.WebhookUrlFromConfig</div>
+            }
+            <div class="form-text">Register this URL in Meta Developer Console. Default for this host: <code>@Model.EffectiveWebhookUrl</code></div>
+        </div>
+        <button type="submit" class="btn btn-primary">Save</button>
+    </form>
+</div>
+
+<div class="panel mb-4">
+    <p class="eyebrow">Connection</p>
+    <h2 class="h6 mb-2">Test Meta API</h2>
+    <p class="small text-body-secondary mb-2">@Model.ConnectionStatus</p>
+    <form asp-action="TestConnection" method="post" class="d-inline">
+        @Html.AntiForgeryToken()
+        <button type="submit" class="btn btn-outline-primary" @(Model.IsConfigured ? null : "disabled")>Test connection</button>
+    </form>
+    @if (!Model.IsConfigured)
+    {
+        <div class="form-text mt-2">Save access token and phone number ID first.</div>
+    }
+</div>
+
+<div class="panel mb-4">
+    <p class="eyebrow">Meta webhook setup</p>
+    <h2 class="h6 mb-2">Register in Developer Console</h2>
+    <ol class="small text-body-secondary mb-0">
+        <li>Open your Meta app → <strong>WhatsApp</strong> → <strong>Configuration</strong></li>
+        <li>Callback URL: <code>@Model.EffectiveWebhookUrl</code></li>
+        <li>Verify token: use the same value saved above (@Model.EffectiveVerifyToken)</li>
+        <li>Subscribe to the <strong>messages</strong> field</li>
+    </ol>
+</div>
+
+<div class="panel">
+    <p class="eyebrow">User linking</p>
+    <h2 class="h6 mb-2">How users connect</h2>
+    <ol class="small text-body-secondary mb-0">
+        <li>Users log in → <strong>Messaging</strong> in the main nav</li>
+        <li>Generate a link code</li>
+        <li>Send <code>/link CODE</code> to your WhatsApp business number</li>
+    </ol>
+</div>

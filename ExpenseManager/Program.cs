@@ -50,6 +50,8 @@ builder.Services.AddScoped<IMessagingOrchestrator, MessagingOrchestrator>();
 builder.Services.AddScoped<ITelegramOptionsProvider, TelegramOptionsProvider>();
 builder.Services.AddScoped<ITelegramAdminService, TelegramAdminService>();
 builder.Services.AddScoped<ITelegramBotClient, TelegramBotClient>();
+builder.Services.AddScoped<IWhatsAppOptionsProvider, WhatsAppOptionsProvider>();
+builder.Services.AddScoped<IWhatsAppAdminService, WhatsAppAdminService>();
 builder.Services.AddScoped<IWhatsAppCloudClient, WhatsAppCloudClient>();
 builder.Services.AddScoped<IExportImportService, ExportImportService>();
 builder.Services.AddScoped<IAdminSettingsService, AdminSettingsService>();

@@ -11,7 +11,8 @@ namespace ExpenseManager.Controllers;
 public sealed class MessagingSettingsController(
     IMessagingLinkService linkService,
     UserManager<IdentityUser> userManager,
-    ITelegramOptionsProvider telegramOptions) : Controller
+    ITelegramOptionsProvider telegramOptions,
+    IWhatsAppOptionsProvider whatsAppOptions) : Controller
 {
     [HttpGet("")]
     [HttpGet("Index")]
@@ -25,8 +26,10 @@ public sealed class MessagingSettingsController(
 
         var links = await linkService.GetLinksForUserAsync(userId, cancellationToken);
         var telegram = await telegramOptions.GetSettingsAsync(cancellationToken);
+        var whatsApp = await whatsAppOptions.GetSettingsAsync(cancellationToken);
         ViewBag.TelegramBotUsername = telegram.BotUsername;
         ViewBag.TelegramConfigured = telegram.IsConfigured;
+        ViewBag.WhatsAppConfigured = whatsApp.IsConfigured;
         return View(links);
     }
 

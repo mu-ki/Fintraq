@@ -117,7 +117,15 @@
         }
         else
         {
-            <li>Ask an admin to configure the Telegram bot under <strong>Admin → Telegram</strong>.</li>
+            <li>Ask an admin to configure Telegram under <strong>Admin → Telegram</strong>.</li>
+        }
+        @if (ViewBag.WhatsAppConfigured == true)
+        {
+            <li>WhatsApp bot is configured by your admin.</li>
+        }
+        else
+        {
+            <li>Ask an admin to configure WhatsApp under <strong>Admin → WhatsApp</strong>.</li>
         }
         <li>Generate a link code above and send <code>/link CODE</code> to the bot.</li>
     </ol>

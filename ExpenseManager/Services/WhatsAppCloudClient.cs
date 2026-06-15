@@ -1,33 +1,26 @@
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
-using ExpenseManager.Configuration;
-using Microsoft.Extensions.Options;
 
 namespace ExpenseManager.Services;
 
 public sealed class WhatsAppCloudClient(
     IHttpClientFactory httpClientFactory,
-    IOptions<WhatsAppOptions> options,
+    IWhatsAppOptionsProvider optionsProvider,
     ILogger<WhatsAppCloudClient> logger) : IWhatsAppCloudClient
 {
-    private readonly WhatsAppOptions _options = options.Value;
-
-    public bool IsConfigured =>
-        !string.IsNullOrWhiteSpace(_options.AccessToken) &&
-        !string.IsNullOrWhiteSpace(_options.PhoneNumberId);
-
     public async Task SendTextMessageAsync(string phoneNumber, string text, CancellationToken cancellationToken = default)
     {
-        if (!IsConfigured)
+        var settings = await optionsProvider.GetSettingsAsync(cancellationToken);
+        if (!settings.IsConfigured)
         {
             logger.LogWarning("WhatsApp Cloud API is not configured.");
             return;
         }
 
         var client = httpClientFactory.CreateClient();
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _options.AccessToken);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", settings.AccessToken);
 
-        var url = $"https://graph.facebook.com/v21.0/{_options.PhoneNumberId}/messages";
+        var url = $"https://graph.facebook.com/v21.0/{settings.PhoneNumberId}/messages";
         var payload = new
         {
             messaging_product = "whatsapp",

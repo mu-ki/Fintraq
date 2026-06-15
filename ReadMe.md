@@ -85,7 +85,10 @@ Link your Fintraq account to Telegram or WhatsApp and manage finances from chat.
 
 ### Configure (admin)
 
-Admins configure the Telegram bot under **Admin → Telegram** (bot token, webhook secret, username, webhook URL, and one-click webhook registration).
+Admins configure messaging bots in the admin panel:
+
+- **Admin → Telegram** — bot token, webhook secret, username, webhook URL, one-click webhook registration
+- **Admin → WhatsApp** — Meta access token, phone number ID, verify token, app secret, webhook URL reference, connection test
 
 Optional fallback in user secrets or `appsettings.json`:
 
@@ -94,6 +97,12 @@ dotnet user-secrets --project ExpenseManager set "Telegram:BotToken" "<your-tele
 dotnet user-secrets --project ExpenseManager set "Telegram:WebhookSecret" "<random-secret>"
 dotnet user-secrets --project ExpenseManager set "Telegram:BotUsername" "<your-bot-username>"
 dotnet user-secrets --project ExpenseManager set "Telegram:WebhookUrl" "https://fintraq.runasp.net/api/webhooks/telegram"
+
+dotnet user-secrets --project ExpenseManager set "WhatsApp:AccessToken" "<meta-access-token>"
+dotnet user-secrets --project ExpenseManager set "WhatsApp:PhoneNumberId" "<phone-number-id>"
+dotnet user-secrets --project ExpenseManager set "WhatsApp:VerifyToken" "<verify-token>"
+dotnet user-secrets --project ExpenseManager set "WhatsApp:AppSecret" "<app-secret>"
+dotnet user-secrets --project ExpenseManager set "WhatsApp:WebhookUrl" "https://fintraq.runasp.net/api/webhooks/whatsapp"
 ```
 
 ### Link your account

@@ -8,4 +8,5 @@ public sealed class WhatsAppOptions
     public string PhoneNumberId { get; set; } = string.Empty;
     public string VerifyToken { get; set; } = string.Empty;
     public string AppSecret { get; set; } = string.Empty;
+    public string WebhookUrl { get; set; } = string.Empty;
 }

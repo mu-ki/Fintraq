@@ -1,12 +1,10 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
-using ExpenseManager.Configuration;
 using ExpenseManager.Models.Messaging;
 using ExpenseManager.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Options;
 
 namespace ExpenseManager.Controllers;
 
@@ -15,19 +13,20 @@ namespace ExpenseManager.Controllers;
 [Route("api/webhooks/whatsapp")]
 public sealed class WhatsAppWebhookController(
     IMessagingOrchestrator orchestrator,
-    IOptions<WhatsAppOptions> options,
+    IWhatsAppOptionsProvider optionsProvider,
     ILogger<WhatsAppWebhookController> logger) : ControllerBase
 {
     [HttpGet]
-    public IActionResult Verify(
+    public async Task<IActionResult> Verify(
         [FromQuery(Name = "hub.mode")] string? mode,
         [FromQuery(Name = "hub.verify_token")] string? verifyToken,
-        [FromQuery(Name = "hub.challenge")] string? challenge)
+        [FromQuery(Name = "hub.challenge")] string? challenge,
+        CancellationToken cancellationToken)
     {
-        var whatsAppOptions = options.Value;
+        var settings = await optionsProvider.GetSettingsAsync(cancellationToken);
         if (mode == "subscribe" &&
             !string.IsNullOrWhiteSpace(verifyToken) &&
-            string.Equals(verifyToken, whatsAppOptions.VerifyToken, StringComparison.Ordinal))
+            string.Equals(verifyToken, settings.VerifyToken, StringComparison.Ordinal))
         {
             return Content(challenge ?? string.Empty, "text/plain");
         }
@@ -38,16 +37,16 @@ public sealed class WhatsAppWebhookController(
     [HttpPost]
     public async Task<IActionResult> Post(CancellationToken cancellationToken)
     {
-        var whatsAppOptions = options.Value;
+        var settings = await optionsProvider.GetSettingsAsync(cancellationToken);
         Request.EnableBuffering();
         using var reader = new StreamReader(Request.Body, Encoding.UTF8, leaveOpen: true);
         var body = await reader.ReadToEndAsync(cancellationToken);
         Request.Body.Position = 0;
 
-        if (!string.IsNullOrWhiteSpace(whatsAppOptions.AppSecret))
+        if (!string.IsNullOrWhiteSpace(settings.AppSecret))
         {
             var signature = Request.Headers["X-Hub-Signature-256"].FirstOrDefault();
-            if (!IsValidSignature(body, signature, whatsAppOptions.AppSecret))
+            if (!IsValidSignature(body, signature, settings.AppSecret))
             {
                 logger.LogWarning("Invalid WhatsApp webhook signature.");
                 return Unauthorized();
